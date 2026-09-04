@@ -41,7 +41,7 @@ print("=" * 66)
 
 sensitive = {
     "merchants": "api_key_hash, discount and margin limits",
-    "orders": "buyer identifiers, amounts, payment ids",
+    "orders": "buyer references (HMAC), amounts, payment ids",
     "products": "cost_paise - the merchant's buying price",
     "audit": "every policy decision and price ever computed",
     "webhook_events": "raw provider payloads",

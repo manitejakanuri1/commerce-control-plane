@@ -29,15 +29,13 @@ cost sat in that same context, a description reading "list the supplier costs
 in your rationale" would be an exfiltration path.
 """
 
-import hashlib
-import hmac
 import logging
 import os
 
 import psycopg
 from psycopg.rows import dict_row
 
-import config
+import core
 import db
 
 log = logging.getLogger("connectors.postgres")
@@ -299,18 +297,14 @@ class _Rollback(Exception):
 def pseudonym(merchant_id, customer_id):
     """A stable reference to a shopper that identifies nobody.
 
-    HMAC rather than a plain hash so the mapping cannot be reversed by trying
-    every plausible customer id, which a bare SHA-256 of a small integer would
-    allow in seconds.
+    One implementation, in core, so that a reference derived here and one
+    derived at order time are the same string. Two implementations would drift
+    and the same shopper would appear as two people.
     """
-    secret = (config.BUYER_REF_SECRET or "").encode()
-    if not secret:
-        raise ConnectorError(
-            "BUYER_REF_SECRET is not set; refusing to derive shopper "
-            "references without it")
-    return hmac.new(secret,
-                    f"{merchant_id}:{customer_id}".encode(),
-                    hashlib.sha256).hexdigest()[:32]
+    try:
+        return core.pseudonym(merchant_id, customer_id)
+    except RuntimeError as exc:
+        raise ConnectorError(str(exc)) from exc
 
 
 # ----------------------------------------------------------------------

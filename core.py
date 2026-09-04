@@ -14,6 +14,7 @@ Three properties this file is responsible for:
 """
 
 import hashlib
+import hmac
 import json
 import logging
 
@@ -471,17 +472,52 @@ VALID_TRANSITIONS = {
 }
 
 
+def pseudonym(merchant_id, identifier):
+    """A stable reference to a person that identifies nobody.
+
+    HMAC rather than a bare hash. A plain SHA-256 of an email address is
+    reversible in practice: an attacker hashes every address they already have
+    and matches. HMAC under a secret they do not hold cannot be attacked that
+    way, so the reference is stable for us and useless to anyone else.
+
+    Scoped per merchant, so the same shopper at two shops produces two
+    different references and the two shops cannot be joined against each other.
+    """
+    secret = (config.BUYER_REF_SECRET or "").encode()
+    if not secret:
+        raise RuntimeError(
+            "BUYER_REF_SECRET is not set; refusing to derive a buyer "
+            "reference without it. A bare hash of an email address is "
+            "reversible by anyone holding a list of addresses.")
+    return hmac.new(secret, f"{merchant_id}:{identifier}".encode(),
+                    hashlib.sha256).hexdigest()[:32]
+
+
 def create_order(merchant_id, order_id, buyer, quote, idempotency_key=None):
+    """Record an order against a reference to the buyer, never the buyer.
+
+    `buyer` arrives as whatever the caller uses to identify a shopper — an
+    email, usually. It is turned into an HMAC reference here and the original
+    is not written anywhere: not to this table, not to the audit trail, and
+    not to the payment provider, which is sent only the merchant id.
+
+    Every other table in this system already worked this way. This one did
+    not, which made "we hold nothing that identifies a customer" almost true —
+    and a claim that is almost true is one a merchant will eventually discover
+    the shape of at the worst moment.
+    """
+    buyer_ref = pseudonym(merchant_id, buyer)
+
     with db.transaction() as conn:
         conn.execute(
-            "INSERT INTO orders (id, merchant_id, buyer, total_paise, "
+            "INSERT INTO orders (id, merchant_id, buyer_ref, total_paise, "
             "discount_bps, state, idempotency_key) "
             "VALUES (%s, %s, %s, %s, %s, 'CREATED', %s)",
-            (order_id, merchant_id, buyer, quote["total_paise"],
+            (order_id, merchant_id, buyer_ref, quote["total_paise"],
              quote["discount_bps"], idempotency_key))
         audit("ORDER_CREATED", {
             "order_id": order_id,
-            "buyer": buyer,
+            "buyer_ref": buyer_ref,
             "total_paise": quote["total_paise"],
         }, merchant_id=merchant_id, conn=conn)
 

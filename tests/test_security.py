@@ -4,8 +4,12 @@ Two attack surfaces exist: what a buyer types, and what a merchant wrote in a
 product description. Both reach the model. Neither may influence a price.
 """
 
+import pytest
+
 import agent
+import config
 import core
+import db
 import retrieval
 from orchestrator import start_purchase
 
@@ -117,3 +121,61 @@ def test_audit_table_refuses_updates(merchant):
     except Exception:                           # noqa: BLE001
         raised = True
     assert raised, "audit table accepted an UPDATE"
+
+
+# --------------------------------------------------------------------------
+# orders hold a reference, not an address
+# --------------------------------------------------------------------------
+
+def test_an_order_stores_a_reference_not_the_buyer(merchant):
+    """Every other table already worked this way. orders did not, which made
+    "we hold nothing that identifies a customer" almost true — and an
+    almost-true claim is one somebody discovers the shape of at the worst
+    moment."""
+    core.create_order(merchant, "ord_pii_1", "priya@example.com",
+                      {"total_paise": 270000, "discount_bps": 900})
+
+    row = db.query_one("SELECT * FROM orders WHERE id = %s", ("ord_pii_1",))
+    assert "priya@example.com" not in str(dict(row))
+    assert row["buyer_ref"] == core.pseudonym(merchant, "priya@example.com")
+
+
+def test_the_address_does_not_reach_the_audit_trail(merchant):
+    """The audit table is append-only and kept forever, so a leak into it
+    cannot be undone."""
+    core.create_order(merchant, "ord_pii_2", "priya@example.com",
+                      {"total_paise": 270000, "discount_bps": 900})
+
+    row = db.query_one(
+        "SELECT detail FROM audit WHERE action = 'ORDER_CREATED' "
+        "ORDER BY seq DESC LIMIT 1")
+    assert "priya@example.com" not in str(row["detail"])
+    assert row["detail"]["buyer_ref"]
+
+
+def test_the_same_shopper_at_two_shops_cannot_be_joined(merchant):
+    """Scoped per merchant, so two merchants comparing their logs cannot
+    discover they share a customer."""
+    assert (core.pseudonym("shop-a", "priya@example.com")
+            != core.pseudonym("shop-b", "priya@example.com"))
+
+
+def test_a_reference_is_stable_for_the_same_shopper(merchant):
+    assert (core.pseudonym(merchant, "priya@example.com")
+            == core.pseudonym(merchant, "priya@example.com"))
+
+
+def test_a_bare_hash_of_the_address_would_not_have_done(merchant):
+    """A plain SHA-256 of an email is reversible by anyone holding a list of
+    addresses. The reference must not equal that hash."""
+    import hashlib
+    bare = hashlib.sha256("priya@example.com".encode()).hexdigest()[:32]
+    assert core.pseudonym(merchant, "priya@example.com") != bare
+
+
+def test_deriving_a_reference_without_the_secret_is_refused(monkeypatch):
+    """Falling back to something weaker would be worse than failing: it would
+    look identical and protect nobody."""
+    monkeypatch.setattr(config, "BUYER_REF_SECRET", "")
+    with pytest.raises(RuntimeError, match="BUYER_REF_SECRET"):
+        core.pseudonym("shop-a", "priya@example.com")

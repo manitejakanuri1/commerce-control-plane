@@ -160,7 +160,7 @@ def make_order():
     def _make(order_id, total_paise=100000):
         with db.transaction() as conn:
             conn.execute(
-                "INSERT INTO orders (id, merchant_id, buyer, total_paise, "
+                "INSERT INTO orders (id, merchant_id, buyer_ref, total_paise, "
                 "discount_bps, state) VALUES (%s, %s, %s, %s, 0, 'CREATED')",
                 (order_id, MERCHANT_ID, "fixture@example.com", total_paise))
         return order_id
