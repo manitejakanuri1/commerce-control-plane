@@ -1,0 +1,409 @@
+<title>Agent Factory</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+
+<style>
+  :root {
+    --ground:#F2F1EC; --surface:#FFFFFF; --surface-2:#E9E8E1;
+    --ink:#12191C; --muted:#5A6B6E; --line:#C7C9C2; --rule:#DCDCD5;
+    --accent:#0B6B62; --accent-soft:#DCEBE8;
+    --gate:#9A6B10; --gate-soft:#F5EAD2;
+    --allow:#2C6E45; --block:#A03A30; --block-soft:#F6E3E0;
+    --f-display:"Archivo","Helvetica Neue",Arial,sans-serif;
+    --f-body:"IBM Plex Sans","Segoe UI",system-ui,sans-serif;
+    --f-mono:"IBM Plex Mono","SFMono-Regular",Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --ground:#0D1417; --surface:#141D21; --surface-2:#1B262B;
+      --ink:#E7EDEE; --muted:#93A6A9; --line:#33454B; --rule:#253338;
+      --accent:#46AB9C; --accent-soft:#16332F;
+      --gate:#D6A63F; --gate-soft:#33280F;
+      --allow:#5FB37E; --block:#DB7A6C; --block-soft:#331C18;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#0D1417; --surface:#141D21; --surface-2:#1B262B;
+    --ink:#E7EDEE; --muted:#93A6A9; --line:#33454B; --rule:#253338;
+    --accent:#46AB9C; --accent-soft:#16332F;
+    --gate:#D6A63F; --gate-soft:#33280F;
+    --allow:#5FB37E; --block:#DB7A6C; --block-soft:#331C18;
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--ground);color:var(--ink);font-family:var(--f-body);
+    font-size:17px;line-height:1.62;margin:0;padding:0 1.25rem 6rem;
+    -webkit-font-smoothing:antialiased}
+  .wrap{max-width:62rem;margin:0 auto}
+  .prose{max-width:40rem}
+
+  h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.15}
+  h1{font-size:clamp(2.1rem,5.5vw,3rem);font-weight:700;
+     letter-spacing:-.02em;margin:0 0 .6rem}
+  h2{font-size:clamp(1.4rem,3vw,1.8rem);font-weight:600;
+     letter-spacing:-.015em;margin:0}
+  h3{font-size:1.05rem;font-weight:600;margin:0 0 .4rem}
+  p{margin:0 0 1rem}
+  code{font-family:var(--f-mono);font-size:.88em;background:var(--surface-2);
+    padding:.1em .35em;border-radius:2px}
+
+  .eyebrow{font-family:var(--f-mono);font-size:.72rem;font-weight:500;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+    margin:0 0 .75rem}
+
+  header.masthead{padding:4rem 0 2.5rem;border-bottom:2px solid var(--ink);
+    margin-bottom:3.5rem}
+  .lede{font-size:1.14rem;color:var(--muted);max-width:36rem;margin:0}
+  .meta{display:flex;flex-wrap:wrap;gap:1.5rem;margin-top:2rem;
+    font-family:var(--f-mono);font-size:.75rem;color:var(--muted)}
+  .meta b{display:block;color:var(--ink);font-weight:600;font-size:.95rem;
+    letter-spacing:-.01em}
+
+  section{margin-bottom:4rem}
+  .section-head{display:flex;align-items:baseline;gap:1rem;
+    border-top:1px solid var(--rule);padding-top:1.5rem;margin-bottom:1.5rem}
+  .section-head .num{font-family:var(--f-mono);font-size:.78rem;
+    color:var(--accent);font-weight:600;flex:none}
+
+  /* ---------- flow ---------- */
+  .flow{display:flex;flex-direction:column;gap:1.6rem;margin:0}
+  .node{position:relative;background:var(--surface);border:1px solid var(--line);
+    border-radius:3px;padding:.75rem .9rem;text-align:center}
+  .node .label{font-family:var(--f-mono);font-size:.78rem;font-weight:600;
+    letter-spacing:.02em;display:block}
+  .node .sub{display:block;font-size:.78rem;color:var(--muted);
+    margin-top:.2rem;line-height:1.45}
+  .node .said{display:block;font-size:.82rem;color:var(--ink);margin-top:.25rem;
+    font-style:italic}
+
+  .node + .node::before,.node + .fan::before,.fan + .node::before{
+    content:"";position:absolute;left:50%;top:-1.6rem;width:2px;height:1.6rem;
+    background:var(--line);transform:translateX(-50%)}
+  .node + .node::after,.node + .fan::after,.fan + .node::after{
+    content:"";position:absolute;left:50%;top:-.5rem;width:0;height:0;
+    border-left:5px solid transparent;border-right:5px solid transparent;
+    border-top:6px solid var(--line);transform:translateX(-50%)}
+
+  .fan{position:relative;display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.6rem}
+  .fan .node::before,.fan .node::after{display:none}
+
+  .node.is-gate{border-color:var(--gate);background:var(--gate-soft);
+    border-width:2px}
+  .node.is-gate .label{color:var(--gate)}
+  .node.is-accent{border-color:var(--accent);background:var(--accent-soft)}
+  .node.is-accent .label{color:var(--accent)}
+  .node.is-user{border-style:dashed}
+  .node.is-new{border-color:var(--accent);border-width:2px;
+    background:var(--surface)}
+  .node.is-new .label{color:var(--accent)}
+  .node.is-new::marker{content:""}
+
+  .tag-new{position:absolute;top:-.6rem;right:.6rem;font-family:var(--f-mono);
+    font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+    background:var(--accent);color:#fff;padding:.1rem .4rem;border-radius:2px}
+
+  /* ---------- tables ---------- */
+  .table-scroll{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;font-size:.92rem;min-width:32rem}
+  th{text-align:left;font-family:var(--f-mono);font-size:.68rem;
+    text-transform:uppercase;letter-spacing:.1em;color:var(--muted);
+    font-weight:600;padding:0 .8rem .6rem 0;border-bottom:1px solid var(--ink)}
+  td{padding:.65rem .8rem .65rem 0;border-bottom:1px solid var(--rule);
+    vertical-align:top}
+  td:last-child,th:last-child{padding-right:0}
+  td.mono,th.mono{font-family:var(--f-mono);font-size:.85rem}
+  .yes{color:var(--allow);font-weight:600}
+  .no{color:var(--block);font-weight:600}
+  .new{color:var(--accent);font-weight:600}
+
+  /* ---------- cards ---------- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));
+    gap:1rem}
+  .card{background:var(--surface);border:1px solid var(--rule);
+    border-radius:3px;padding:1.1rem 1.15rem}
+  .card p{margin:0;font-size:.92rem;color:var(--muted)}
+  .card .tag{font-family:var(--f-mono);font-size:.66rem;letter-spacing:.1em;
+    text-transform:uppercase;font-weight:600;display:block;margin-bottom:.5rem;
+    color:var(--accent)}
+  .card.exists{border-left:3px solid var(--allow)}
+  .card.exists .tag{color:var(--allow)}
+  .card.todo{border-left:3px solid var(--gate)}
+  .card.todo .tag{color:var(--gate)}
+
+  ul.tight{padding-left:1.15rem;margin:0 0 1rem}
+  ul.tight li{margin-bottom:.4rem}
+
+  .callout{border-left:3px solid var(--accent);padding:.1rem 0 .1rem 1.1rem;
+    margin:0 0 1.25rem}
+  .callout.warn{border-left-color:var(--gate)}
+  .callout p:last-child{margin-bottom:0}
+
+  .term{background:#0D1417;color:#E7EDEE;border-radius:4px;padding:1.1rem 1.2rem;
+    font-family:var(--f-mono);font-size:.76rem;line-height:1.8;overflow-x:auto;
+    margin:0 0 1rem}
+  .term .g{color:#5FB37E} .term .r{color:#DB7A6C}
+  .term .d{color:#93A6A9} .term .y{color:#D6A63F} .term .b{color:#46AB9C}
+
+  footer{border-top:1px solid var(--rule);padding-top:1.5rem;font-size:.85rem;
+    color:var(--muted)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">Proposed architecture &middot; agent factory</p>
+    <h1>Agent Factory</h1>
+    <p class="lede">A command centre takes a sentence, works out which job it is, and builds a dedicated agent for it &mdash; with its own scoped key, its own prompt, and only the tools that job needs. Each agent is reachable as an API.</p>
+    <div class="meta">
+      <div>Status<b>Proposed</b></div>
+      <div>Reuses<b>Most of what is built</b></div>
+      <div>New parts<b>Registry, router, spawner</b></div>
+      <div>First agent<b>Database</b></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="section-head"><span class="num">01</span><h2>The command centre</h2></div>
+    <div class="prose">
+      <p>A user arrives and types something plain. Nothing is selected from a menu first &mdash; the sentence is the input.</p>
+    </div>
+
+    <div style="max-width:36rem;margin:2rem auto 0">
+      <div class="flow">
+        <div class="node is-user">
+          <span class="label">USER</span>
+          <span class="said">&ldquo;Integrate Razorpay with my website&rdquo;</span>
+        </div>
+
+        <div class="node is-new">
+          <span class="tag-new">new</span>
+          <span class="label">INTENT ROUTER</span>
+          <span class="sub">reads the sentence, picks the job &middot; asks only what it
+            still needs to know</span>
+        </div>
+
+        <div class="node is-user">
+          <span class="label">CLARIFY</span>
+          <span class="sub">&ldquo;How did you build your site?&rdquo;</span>
+          <span class="said">Claude &middot; Cursor &middot; Codex &middot; something else</span>
+        </div>
+
+        <div class="node is-new">
+          <span class="tag-new">new</span>
+          <span class="label">AGENT FACTORY</span>
+          <span class="sub">builds one agent for this task and nothing else</span>
+        </div>
+
+        <div class="fan">
+          <div class="node">
+            <span class="label">SCOPED KEY</span>
+            <span class="sub">issued per agent</span>
+          </div>
+          <div class="node">
+            <span class="label">SYSTEM PROMPT</span>
+            <span class="sub">for this job only</span>
+          </div>
+          <div class="node">
+            <span class="label">TOOL SET</span>
+            <span class="sub">least privilege</span>
+          </div>
+        </div>
+
+        <div class="node is-accent">
+          <span class="label">AGENT INSTANCE</span>
+          <span class="sub">runs the task &middot; reachable at its own endpoint</span>
+        </div>
+
+        <div class="node is-gate">
+          <span class="label">POLICY GATE</span>
+          <span class="sub">anything touching money or a merchant's data passes
+            through the same deterministic checks</span>
+        </div>
+
+        <div class="node">
+          <span class="label">RESULT</span>
+          <span class="sub">structured output, plus an audit record of what the
+            agent did and why</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="num">02</span><h2>One agent per job</h2></div>
+    <div class="prose">
+      <p>Not one large agent with every capability. Each job gets an agent that holds only what that job needs, so a compromised or confused agent has a small blast radius rather than a total one.</p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Agent</th><th>Job</th><th>Tools it holds</th><th>State</th></tr></thead>
+        <tbody>
+          <tr>
+            <td class="mono">database</td>
+            <td>Connect to a merchant's database and read product detail &mdash; name, cost, MRP, stock, everything</td>
+            <td>connect, verify, describe schema, fetch product</td>
+            <td class="new">build first</td>
+          </tr>
+          <tr>
+            <td class="mono">integration</td>
+            <td>Produce a ready-to-paste prompt for the user's coding tool</td>
+            <td>detect stack, issue keys, render prompt</td>
+            <td class="new">proposed</td>
+          </tr>
+          <tr>
+            <td class="mono">catalog</td>
+            <td>Import and normalise a storefront's products</td>
+            <td>import, validate, sync vectors</td>
+            <td class="yes">exists</td>
+          </tr>
+          <tr>
+            <td class="mono">commerce</td>
+            <td>Propose what to sell, priced and policy-checked</td>
+            <td>retrieve, propose, evaluate policy, quote</td>
+            <td class="yes">exists</td>
+          </tr>
+          <tr>
+            <td class="mono">reconciler</td>
+            <td>Resolve payments the system has lost track of</td>
+            <td>read provider state, adopt it</td>
+            <td class="yes">exists</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose" style="margin-top:1.75rem">
+      <div class="callout">
+        <p>The last three already run. What the factory changes is how they are addressed: each becomes a named agent with its own key and endpoint, rather than a step inside one fixed pipeline.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="num">03</span><h2>The database agent</h2></div>
+    <div class="prose">
+      <p>The one to build first, because it is the one every other agent depends on and because most of its engine already exists in the read-only connector.</p>
+    </div>
+
+    <div style="max-width:36rem;margin:2rem auto 0">
+      <div class="flow">
+        <div class="node is-user">
+          <span class="label">CALLER</span>
+          <span class="said">&ldquo;What do we know about sku e1?&rdquo;</span>
+        </div>
+        <div class="node">
+          <span class="label">POST /v1/agents/database/run</span>
+          <span class="sub">agent key resolved to a merchant and a scope</span>
+        </div>
+        <div class="node is-accent">
+          <span class="label">DATABASE AGENT</span>
+          <span class="sub">plans which tools to call, in what order</span>
+        </div>
+        <div class="fan">
+          <div class="node"><span class="label">CONNECT</span>
+            <span class="sub">read-only role</span></div>
+          <div class="node"><span class="label">VERIFY</span>
+            <span class="sub">attempts a write, expects refusal</span></div>
+          <div class="node"><span class="label">DESCRIBE</span>
+            <span class="sub">what it can actually see</span></div>
+        </div>
+        <div class="node is-gate">
+          <span class="label">PROJECTION</span>
+          <span class="sub">cost and customer data answer the caller &middot;
+            neither is placed in a model's context</span>
+        </div>
+        <div class="node">
+          <span class="label">STRUCTURED RESULT</span>
+          <span class="sub">name, cost, MRP, stock, category, everything the
+            merchant granted</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="prose" style="margin-top:2.5rem">
+      <h3>What comes back</h3>
+      <div class="term">
+<span class="d">POST /v1/agents/database/run</span><br>
+<span class="d">{"task": "everything about sku e1"}</span><br>
+<br>
+{<br>
+&nbsp;&nbsp;<span class="b">"sku"</span>: <span class="g">"e1"</span>,<br>
+&nbsp;&nbsp;<span class="b">"name"</span>: <span class="g">"Wireless Noise-Cancelling Earbuds"</span>,<br>
+&nbsp;&nbsp;<span class="b">"price_paise"</span>: <span class="y">249900</span>,<br>
+&nbsp;&nbsp;<span class="b">"mrp_paise"</span>: <span class="y">499900</span>,<br>
+&nbsp;&nbsp;<span class="b">"cost_paise"</span>: <span class="y">168000</span>,<br>
+&nbsp;&nbsp;<span class="b">"stock"</span>: <span class="y">12</span>,<br>
+&nbsp;&nbsp;<span class="b">"category"</span>: <span class="g">"Electronics"</span>,<br>
+&nbsp;&nbsp;<span class="b">"source"</span>: <span class="g">"merchant database, read-only"</span>,<br>
+&nbsp;&nbsp;<span class="b">"reached_a_model"</span>: <span class="r">false</span><br>
+}
+      </div>
+      <p>That last field is not decoration. Cost and MRP go back to whoever asked, and are never placed in a prompt &mdash; because the agent reads merchant-written product text, and one of those descriptions already tries to hijack it.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="num">04</span><h2>Every agent gets its own key</h2></div>
+    <div class="prose">
+      <p>A key is issued when the agent is created and dies with it. Scope is decided by the job, not by who is asking.</p>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead><tr><th>Scope</th><th>Held by</th><th>May</th><th>May never</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">browse</td><td>Storefront pages</td><td>Search, ask for a proposal</td><td class="no">Move money</td></tr>
+          <tr><td class="mono">read</td><td>The database agent</td><td>Read a merchant's granted tables</td><td class="no">Write anything</td></tr>
+          <tr><td class="mono">catalog</td><td>The integration agent</td><td>Import and sync products</td><td class="no">Create payments</td></tr>
+          <tr><td class="mono">full</td><td>A merchant's own server</td><td>Purchase, reconcile, everything</td><td class="no">Leave that server</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="prose" style="margin-top:1.75rem">
+      <p>This already works for two of the four. The browse key sits in the deployed landing page's source, and <code>/v1/purchase</code> answers it with a 403.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="num">05</span><h2>What exists, what does not</h2></div>
+    <div class="cards">
+      <div class="card exists">
+        <span class="tag">Already running</span>
+        <h3>The engine of every agent</h3>
+        <p>Read-only connector with verified capabilities, policy engine, catalog import, retrieval, reconciliation, scoped keys, audit trail. All deployed and covered by 63 tests.</p>
+      </div>
+      <div class="card todo">
+        <span class="tag">To build</span>
+        <h3>The factory itself</h3>
+        <p>An agent registry, per-agent key issuance, a spawner, and the intent router that turns one sentence into the right agent. Days rather than hours.</p>
+      </div>
+      <div class="card todo">
+        <span class="tag">To build first</span>
+        <h3>The database agent</h3>
+        <p>Wraps the existing connector as a named, API-addressable agent. Demonstrates the whole pattern with one working example. Hours rather than days.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-head"><span class="num">06</span><h2>Order of work</h2></div>
+    <div class="prose">
+      <ul class="tight">
+        <li><b>Database agent</b> &mdash; the one named above. Reuses the connector, proves the pattern, ships today.</li>
+        <li><b>Agent endpoint shape</b> &mdash; <code>POST /v1/agents/{name}/run</code>, so every later agent has a door already built.</li>
+        <li><b>Per-agent key issuance</b> &mdash; extends the two scopes that already exist.</li>
+        <li><b>Integration agent</b> &mdash; renders a ready-to-paste prompt for Claude, Cursor or Codex.</li>
+        <li><b>Intent router</b> &mdash; the sentence-to-agent step. Last, because it is worthless until there are several agents to route between.</li>
+      </ul>
+      <div class="callout warn">
+        <p><b>Against a deadline:</b> one working agent plus this diagram is a stronger submission than a factory with nothing running inside it. The pattern is what a reviewer evaluates; the scaffolding is what they assume you can add.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <p>Proposed extension to the Commerce Control Plane. The commerce, catalog and reconciliation agents already run in production; the factory reframes how they are addressed and adds the database and integration agents alongside them.</p>
+  </footer>
+
+</div>

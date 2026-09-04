@@ -1,0 +1,20 @@
+.env
+*.db
+*.db-wal
+*.db-shm
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.coverage
+htmlcov/
+*.log
+.DS_Store
+.idea/
+.vscode/
+.apikey
+.vercel
+
+# Names the Supabase project this repo talks to.
+.mcp.json

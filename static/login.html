@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sign in — Commerce Control Plane</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔐</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --white:#FFFFFF;
+    --ink:#1A1A1E; --ink-2:#2E2E33; --muted:#6E6E76; --faint:#8A8A92;
+    --placeholder:#9EA0A6;
+    --blue:#3D6FF5; --blue-border:#4A7CF8; --blue-hi:#2F5FE0;
+    --blue-soft:#E8ECF7;
+    --line:#EFEFF2; --btn-line:#E2E2E7; --rule:#F2F2F5;
+    --allow:#1D7F4C; --block:#C4362B;
+    --f:-apple-system,BlinkMacSystemFont,"SF Pro Display","SF Pro Text",
+       "Plus Jakarta Sans","Segoe UI",system-ui,sans-serif;
+    --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --white:#16171B;
+      --ink:#F2F2F5; --ink-2:#C9C9D1; --muted:#9A9AA3; --faint:#7A7A84;
+      --placeholder:#6B6B73;
+      --blue:#6E9BFF; --blue-border:#7EA7FF; --blue-hi:#8AB0FF;
+      --blue-soft:#151C2E;
+      --line:#26262C; --btn-line:#2C2C33; --rule:#1E1E23;
+      --allow:#4FC17E; --block:#E0685A;
+    }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--white);color:var(--ink);
+    font-family:var(--f);font-size:16px;line-height:1.5;letter-spacing:-.012em;
+    -webkit-font-smoothing:antialiased;display:grid;place-items:center;
+    padding:2rem 1.25rem;
+    background-image:
+      radial-gradient(56% 60% at 2% 8%,   #BDD6F2 0%, rgba(189,214,242,0) 58%),
+      radial-gradient(48% 54% at 98% 18%, #E5CFDE 0%, rgba(229,207,222,0) 58%),
+      radial-gradient(44% 50% at 20% 96%, #AFCDEC 0%, rgba(175,205,236,0) 58%);
+    background-attachment:fixed}
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]) body{background-image:
+      radial-gradient(56% 60% at 2% 8%,   #16233A 0%, rgba(22,35,58,0) 58%),
+      radial-gradient(48% 54% at 98% 18%, #2A1A26 0%, rgba(42,26,38,0) 58%),
+      radial-gradient(44% 50% at 20% 96%, #142033 0%, rgba(20,32,51,0) 58%)}
+  }
+
+  .shell{width:100%;max-width:26rem}
+
+  .brand{display:flex;align-items:center;justify-content:center;gap:.5rem;
+    margin:0 0 .5rem}
+  .brand svg{width:22px;height:22px;color:var(--blue)}
+  .brand span{font-size:.95rem;font-weight:600;letter-spacing:-.02em}
+
+  h1{font-size:1.5rem;font-weight:700;letter-spacing:-.028em;text-align:center;
+    margin:0 0 .35rem;line-height:1.2}
+  .sub{text-align:center;color:var(--muted);font-size:.92rem;margin:0 0 1.6rem}
+
+  .card{background:var(--white);border:1px solid var(--line);border-radius:16px;
+    padding:1.6rem 1.6rem 1.7rem;
+    box-shadow:0 1px 3px rgba(20,22,26,.05),0 16px 40px -18px rgba(20,22,26,.22)}
+
+  .tabs{display:grid;grid-template-columns:1fr 1fr;gap:.3rem;
+    background:var(--rule);border-radius:10px;padding:.25rem;margin:0 0 1.3rem}
+  .tabs button{font-family:inherit;font-size:.87rem;font-weight:600;
+    padding:.5rem;border:0;border-radius:8px;background:transparent;
+    color:var(--muted);cursor:pointer;transition:.15s}
+  .tabs button[aria-selected="true"]{background:var(--white);color:var(--ink);
+    box-shadow:0 1px 2px rgba(20,22,26,.07)}
+
+  label{display:block;font-size:.82rem;font-weight:500;color:var(--ink-2);
+    margin:0 0 .35rem}
+  .field{margin:0 0 .95rem}
+  .field:last-of-type{margin-bottom:1.2rem}
+  input{width:100%;font-family:inherit;font-size:.95rem;color:var(--ink);
+    background:var(--white);border:1px solid var(--btn-line);border-radius:9px;
+    padding:.68rem .8rem;outline:none;transition:.15s}
+  input::placeholder{color:var(--placeholder)}
+  input:focus{border-color:var(--blue-border);
+    box-shadow:0 0 0 3px rgba(61,111,245,.12)}
+  .hint{font-size:.76rem;color:var(--faint);margin:.3rem 0 0}
+
+  .btn{width:100%;font-family:inherit;font-size:.93rem;font-weight:600;
+    padding:.75rem;border-radius:9px;border:0;background:var(--blue);color:#fff;
+    cursor:pointer;transition:.15s}
+  .btn:hover{background:var(--blue-hi)}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+
+  .msg{font-size:.86rem;border-radius:9px;padding:.7rem .85rem;margin:0 0 1rem;
+    display:none}
+  .msg.show{display:block}
+  .msg.err{background:rgba(196,54,43,.08);color:var(--block);
+    border:1px solid rgba(196,54,43,.2)}
+  .msg.ok{background:rgba(29,127,76,.08);color:var(--allow);
+    border:1px solid rgba(29,127,76,.2)}
+
+  .foot{text-align:center;font-size:.8rem;color:var(--faint);margin:1.3rem 0 0;
+    line-height:1.65}
+  .foot code{font-family:var(--mono);font-size:.75rem}
+
+  :focus-visible{outline:2px solid var(--blue);outline-offset:2px;
+    border-radius:6px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <p class="brand">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="2.5" y="10" width="19" height="11.5" rx="2.5"
+        stroke="currentColor" stroke-width="2"/>
+      <path d="M7 10V6.5a5 5 0 0 1 10 0V10" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    <span>Commerce Control Plane</span>
+  </p>
+
+  <h1 id="heading">Welcome back</h1>
+  <p class="sub" id="subheading">Sign in to manage your storefront.</p>
+
+  <div class="card">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-in" aria-selected="true">Sign in</button>
+      <button role="tab" id="tab-up" aria-selected="false">Create account</button>
+    </div>
+
+    <div class="msg" id="msg" role="status"></div>
+
+    <form id="form" novalidate>
+      <div class="field only-signup" hidden>
+        <label for="name">Your name</label>
+        <input id="name" autocomplete="name" placeholder="Purna Kanuri">
+      </div>
+
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" autocomplete="email"
+               placeholder="you@example.com" required>
+      </div>
+
+      <div class="field">
+        <label for="password">Password</label>
+        <input id="password" type="password" autocomplete="current-password"
+               placeholder="••••••••••" required>
+        <p class="hint only-signup" hidden>At least 10 characters.</p>
+      </div>
+
+      <div class="field only-signup" hidden>
+        <label for="website_name">Store name <span style="color:var(--faint);font-weight:400">— optional</span></label>
+        <input id="website_name" placeholder="Bazaar">
+      </div>
+
+      <div class="field only-signup" hidden>
+        <label for="website_url">Store URL <span style="color:var(--faint);font-weight:400">— optional</span></label>
+        <input id="website_url" type="url" placeholder="https://yourstore.com">
+      </div>
+
+      <button class="btn" type="submit" id="go">Sign in</button>
+    </form>
+  </div>
+
+  <p class="foot">
+    Database details are collected later, after you sign in — never on this page.
+  </p>
+
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let mode = "in";
+
+function setMode(next) {
+  mode = next;
+  const up = mode === "up";
+  $("tab-in").setAttribute("aria-selected", String(!up));
+  $("tab-up").setAttribute("aria-selected", String(up));
+  $("heading").textContent = up ? "Create your account" : "Welcome back";
+  $("subheading").textContent = up
+    ? "Connect a storefront and make it sellable to AI buyers."
+    : "Sign in to manage your storefront.";
+  $("go").textContent = up ? "Create account" : "Sign in";
+  $("password").setAttribute("autocomplete",
+    up ? "new-password" : "current-password");
+  document.querySelectorAll(".only-signup").forEach(el => { el.hidden = !up; });
+  hide();
+}
+
+function show(text, kind) {
+  const el = $("msg");
+  el.textContent = text;
+  el.className = `msg show ${kind}`;
+}
+function hide() { $("msg").className = "msg"; }
+
+$("tab-in").addEventListener("click", () => setMode("in"));
+$("tab-up").addEventListener("click", () => setMode("up"));
+
+$("form").addEventListener("submit", async e => {
+  e.preventDefault();
+  hide();
+
+  const email = $("email").value.trim();
+  const password = $("password").value;
+
+  if (!email || !password) {
+    show("Email and password are both required.", "err");
+    return;
+  }
+  if (mode === "up" && password.length < 10) {
+    show("Password must be at least 10 characters.", "err");
+    return;
+  }
+  if (mode === "up" && !$("name").value.trim()) {
+    show("Please enter your name.", "err");
+    return;
+  }
+
+  const body = mode === "up"
+    ? {email, password, name: $("name").value.trim(),
+       website_name: $("website_name").value.trim() || null,
+       website_url: $("website_url").value.trim() || null}
+    : {email, password};
+
+  $("go").disabled = true;
+  $("go").textContent = mode === "up" ? "Creating…" : "Signing in…";
+
+  try {
+    const res = await fetch(`/v1/auth/${mode === "up" ? "signup" : "login"}`, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      // The session arrives as an httpOnly cookie, so it is never readable
+      // from this page — a scripting bug here cannot steal it.
+      credentials: "same-origin",
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (!res.ok) {
+      show(data.detail || `Something went wrong (${res.status}).`, "err");
+      return;
+    }
+
+    show(`Signed in as ${data.user.name}. Taking you to setup…`, "ok");
+    setTimeout(() => { location.href = "/app"; }, 900);
+  } catch (err) {
+    show("Could not reach the server. Check your connection.", "err");
+  } finally {
+    $("go").disabled = false;
+    $("go").textContent = mode === "up" ? "Create account" : "Sign in";
+  }
+});
+
+// Already signed in? Skip the form.
+fetch("/v1/auth/me", {credentials: "same-origin"})
+  .then(r => r.ok ? r.json() : null)
+  .then(d => { if (d) location.href = "/app"; })
+  .catch(() => {});
+</script>
+</body>
+</html>

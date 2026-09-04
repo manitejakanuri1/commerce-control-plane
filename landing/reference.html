@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Layout reference</title>
+<!--
+  A local layout study, matching the composition of the screenshot: pastel
+  corner wash, greeting line, headline with a mark, blue-outlined prompt box
+  with a footer row, two pill buttons, three cards below the fold.
+
+  Wording and mark are ours. This is here to compare proportions and colour
+  against the reference, not to reproduce anyone's branding.
+
+  Open it straight from disk — no server, no build.
+-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap">
+<style>
+  :root{
+    --white:#FFFFFF;
+    --ink:#1A1A1E; --ink-2:#2E2E33; --muted:#6E6E76; --faint:#8A8A92;
+    --placeholder:#9EA0A6;
+    --blue:#3D6FF5; --blue-border:#4A7CF8; --blue-soft:#E8ECF7;
+    --line:#EFEFF2; --btn-line:#E2E2E7;
+    --f:-apple-system,BlinkMacSystemFont,"SF Pro Display",
+       "Plus Jakarta Sans","Segoe UI",system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--f);color:var(--ink);font-size:16px;
+    line-height:1.5;letter-spacing:-.012em;-webkit-font-smoothing:antialiased;
+    /* Four corner pools plus a bright centre — colour arrives from the edges
+       and the middle stays near white, as in the reference. */
+    background:
+      radial-gradient(58% 62% at 2% 16%,  #BDD6F2 0%, rgba(189,214,242,0) 62%),
+      radial-gradient(50% 56% at 20% 94%, #AFCDEC 0%, rgba(175,205,236,0) 60%),
+      radial-gradient(54% 58% at 99% 30%, #E5CFDE 0%, rgba(229,207,222,0) 62%),
+      radial-gradient(50% 56% at 84% 12%, #EBD9E6 0%, rgba(235,217,230,0) 62%),
+      radial-gradient(44% 50% at 76% 97%, #E7DCEE 0%, rgba(231,220,238,0) 60%),
+      radial-gradient(66% 52% at 50% 4%,  #EDF1F9 0%, rgba(237,241,249,0) 72%),
+      #EDF1F9;
+    background-attachment:fixed;
+    min-height:100vh;padding:3.2rem 1.5rem 4rem;text-align:center}
+
+  .inner{max-width:58rem;margin:0 auto}
+
+  .greet{font-size:.95rem;color:var(--ink-2);margin:0 0 1.15rem}
+  .greet a{color:var(--ink-2);text-decoration:underline;text-underline-offset:2px}
+
+  h1{font-weight:700;letter-spacing:-.032em;
+    font-size:clamp(1.75rem,4.4vw,2.4rem);line-height:1.14;
+    margin:0 auto 2rem;max-width:22ch;
+    display:flex;align-items:center;justify-content:center;gap:.55rem;
+    flex-wrap:wrap}
+  .mark{width:24px;height:24px;flex:none;color:var(--blue)}
+
+  /* prompt box */
+  .box{background:var(--white);border:2px solid var(--blue-border);
+    border-radius:15px;max-width:35.5rem;margin:0 auto;text-align:left;
+    overflow:hidden;
+    box-shadow:0 1px 2px rgba(74,124,248,.08),
+               0 8px 28px -10px rgba(74,124,248,.20)}
+  .box textarea{width:100%;border:0;background:none;resize:none;
+    font-family:inherit;font-size:.97rem;color:var(--ink);
+    padding:1.1rem 1.2rem .4rem;min-height:4.4rem;outline:none;display:block}
+  .box textarea::placeholder{color:var(--placeholder)}
+  .boxfoot{display:flex;justify-content:space-between;align-items:center;
+    padding:.3rem .75rem .75rem 1.2rem}
+  .boxnote{font-size:.79rem;color:var(--muted)}
+  .send{width:28px;height:28px;border-radius:7px;border:0;flex:none;
+    background:var(--blue-soft);color:var(--blue);cursor:pointer;
+    display:grid;place-items:center;font-size:.85rem;transition:.16s}
+  .send:hover{background:var(--blue);color:#fff}
+
+  /* pill row */
+  .actions{display:flex;gap:.65rem;justify-content:center;flex-wrap:wrap;
+    margin:1.45rem 0 0}
+  .btn{font-family:inherit;font-size:.9rem;font-weight:600;
+    padding:.7rem 1.35rem;border-radius:8px;cursor:pointer;
+    border:1px solid transparent;display:inline-flex;align-items:center;
+    gap:.42rem;transition:.16s}
+  .btn.primary{background:var(--blue);color:#fff;
+    box-shadow:0 1px 2px rgba(61,111,245,.25)}
+  .btn.primary:hover{background:#2F5FE0}
+  .btn.ghost{background:var(--white);color:var(--ink-2);
+    border-color:var(--btn-line)}
+  .btn.ghost:hover{border-color:var(--faint)}
+  .btn svg{width:14px;height:14px;flex:none}
+
+  /* card row */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(15.5rem,1fr));
+    gap:1.1rem;max-width:58rem;margin:3.2rem auto 0;text-align:left}
+  .card{background:var(--white);border:1px solid rgba(255,255,255,.7);
+    border-radius:13px;padding:1.15rem 1.3rem 1.4rem;
+    box-shadow:0 1px 2px rgba(20,22,26,.04),
+               0 10px 30px -16px rgba(20,22,26,.22);
+    transition:.3s cubic-bezier(.16,1,.3,1)}
+  .card:hover{transform:translateY(-3px);
+    box-shadow:0 2px 4px rgba(20,22,26,.05),
+               0 18px 44px -18px rgba(20,22,26,.28)}
+  .card .lab{font-size:.76rem;color:var(--muted);margin:0 0 .5rem;
+    font-weight:500}
+  .card .big{font-size:1.02rem;font-weight:600;letter-spacing:-.018em;
+    margin:0 0 .35rem;line-height:1.35}
+  .card .sm{font-size:.86rem;color:var(--muted);margin:0;line-height:1.5}
+
+  :focus-visible{outline:2px solid var(--blue);outline-offset:3px;
+    border-radius:6px}
+</style>
+</head>
+<body>
+<div class="inner">
+
+  <p class="greet">Hi, I see you're selling on
+    <a href="#">bazzer-store.vercel.app</a></p>
+
+  <h1>
+    <svg class="mark" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="2.5" y="10" width="19" height="11.5" rx="2.5"
+        stroke="currentColor" stroke-width="2"/>
+      <path d="M7 10V6.5a5 5 0 0 1 10 0V10" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round"/>
+    </svg>
+    Let's make you sellable to AI buyers
+  </h1>
+
+  <form class="box" onsubmit="return false">
+    <textarea rows="3" aria-label="Ask"
+      placeholder="Ask for anything the way a shopper would…"></textarea>
+    <div class="boxfoot">
+      <span class="boxnote">the model proposes · the policy engine decides</span>
+      <button class="send" type="submit" aria-label="Send">&uarr;</button>
+    </div>
+  </form>
+
+  <div class="actions">
+    <button class="btn primary">Integrate with a prompt</button>
+    <button class="btn ghost">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      I'll do it later</button>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <p class="lab">Agent-readable catalog</p>
+      <p class="big">Any storefront becomes discoverable.</p>
+      <p class="sm">Import a product list and an AI buyer that has never seen
+        the shop can find it and buy from it.</p>
+    </div>
+    <div class="card">
+      <p class="lab">Economic policy</p>
+      <p class="big">Limits the AI cannot move.</p>
+      <p class="sm">Five checks run together and every result is shown —
+        including the ones a merchant hasn't configured.</p>
+    </div>
+    <div class="card">
+      <p class="lab">Payment resilience</p>
+      <p class="big">Silence is not failure.</p>
+      <p class="sm">When a webhook never arrives, it asks Razorpay what
+        happened instead of guessing. It never charges twice.</p>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
