@@ -189,7 +189,29 @@ async function main() {
     authTimeout: 0,
     restartOnCrash: main,
     cacheEnabled: false,
-    useChrome: true,
+
+    // Never the system `chromium-browser`. On Ubuntu 24.04 that name is a
+    // shim for a snap, and a snap-confined browser refuses to launch from
+    // inside another snap's cgroup — which is exactly what happens when this
+    // is started by the SSM agent. The failure names xdg-settings and a
+    // cgroup tag, and mentions neither snap confinement nor the fix.
+    //
+    // A real binary avoids the whole question. CHROME_PATH points at one when
+    // the box has Google Chrome installed; otherwise Puppeteer's own download
+    // is used, which is never a snap.
+    useChrome: Boolean(process.env.CHROME_PATH),
+    executablePath: process.env.CHROME_PATH || undefined,
+
+    // A server has no user namespace to sandbox into, and no /dev/shm worth
+    // the name. Without these Chrome exits immediately with a message about
+    // the sandbox that reads like a permissions problem.
+    chromiumArgs: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+    ],
+
     // Written to disk so a reboot reconnects without another scan. A worker
     // that demanded a QR after every restart would quietly stop sending
     // receipts the first time the box rebooted overnight.
