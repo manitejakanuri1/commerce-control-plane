@@ -199,8 +199,14 @@ async function main() {
     // A real binary avoids the whole question. CHROME_PATH points at one when
     // the box has Google Chrome installed; otherwise Puppeteer's own download
     // is used, which is never a snap.
-    useChrome: Boolean(process.env.CHROME_PATH),
+    // useChrome makes wa-automate search for Chrome itself, and on this
+    // distribution its search finds the snap shim again — the very thing
+    // executablePath was set to avoid. Off, so the explicit path is the only
+    // one considered.
+    useChrome: false,
     executablePath: process.env.CHROME_PATH || undefined,
+    skipUpdateCheck: true,
+    logConsoleErrors: true,
 
     // A server has no user namespace to sandbox into, and no /dev/shm worth
     // the name. Without these Chrome exits immediately with a message about
