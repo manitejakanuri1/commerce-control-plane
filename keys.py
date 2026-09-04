@@ -136,6 +136,23 @@ def rotate(merchant_id, scope):
     return new_key
 
 
+def matches(merchant_id, raw_key, scope):
+    """Is this the live key for that merchant and scope?
+
+    Lets a key the merchant already holds be written back into an integration
+    prompt without minting a new one. Compared as a hash against the stored
+    hash, so a stale key from a browser that missed a rotation is rejected
+    rather than handed back as though it were current.
+    """
+    if not raw_key or scope not in SCOPES:
+        return False
+    hash_column, _ = COLUMNS[scope]
+    row = db.query_one(
+        f"SELECT 1 FROM merchants WHERE id = %s AND {hash_column} = %s "
+        f"AND active", (merchant_id, hash_key(raw_key)))
+    return row is not None
+
+
 def describe(merchant_id):
     """What a settings page may show: stubs, never keys."""
     row = db.query_one(

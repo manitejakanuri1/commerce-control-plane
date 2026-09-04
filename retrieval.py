@@ -232,6 +232,16 @@ def as_context(products):
         for p in products)
 
 
+def backend_name():
+    """Which index a search would use right now.
+
+    Recorded against every retrieval, because "search got slower" and "search
+    silently fell back to Postgres full-text" look identical from the outside
+    and have completely different fixes.
+    """
+    return "pinecone" if config.PINECONE_ENABLED else "postgres"
+
+
 def health():
     if not config.PINECONE_ENABLED:
         return {"backend": "postgres", "ok": True}

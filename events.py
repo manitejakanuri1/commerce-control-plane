@@ -23,7 +23,17 @@ import db
 
 log = logging.getLogger("events")
 
-KINDS = ("search", "propose", "purchase_started", "widget_shown")
+KINDS = (
+    # a shopper's journey
+    "search",            # they typed something
+    "retrieval",         # the index ran — how many candidates, which backend
+    "propose",           # the agent produced an offer
+    "purchase_started",  # they went to pay
+    "widget_shown",      # the panel opened on a merchant's site
+    # the merchant's own
+    "merchant_question",  # they asked their agent something
+    "prompt_issued",      # they took an integration prompt
+)
 
 MAX_QUERY = 200
 RETENTION_DAYS = 30

@@ -220,8 +220,11 @@ class AskRequest(BaseModel):
 
 class IntegrationPromptRequest(BaseModel):
     tool: str = Field("your coding tool", max_length=40)
-    # Defaults to False. Minting a key invalidates the previous one, and that
-    # is not something a page should do because somebody opened it.
+    # The key the browser already holds, from signup. Checked against the
+    # stored hash and written into the prompt if it is still the live one.
+    existing_key: str | None = Field(None, max_length=120)
+    # Mint a new key when no valid one was presented. Minting invalidates the
+    # previous key, so it is not something a page should do casually.
     with_key: bool = False
 
 
@@ -491,15 +494,77 @@ def integration_prompt(body: IntegrationPromptRequest,
     if not merchant_id:
         raise HTTPException(409, "this account has no merchant yet")
 
-    browse_key = keys.rotate(merchant_id, "browse") if body.with_key else None
+    # The browser sends back the key it was given at signup, so the same key
+    # appears in the prompt every time. Rotating on every click issued a new
+    # key and killed the previous one, which meant opening this twice broke a
+    # storefront that had already been wired with the first.
+    #
+    # The key is never stored here in readable form. It lives in the merchant's
+    # own browser — where they already saw it — and is verified against the
+    # stored hash before being written into a prompt, so a wrong or stale value
+    # cannot be handed back as though it were current.
+    browse_key = None
+    if body.existing_key and keys.matches(merchant_id, body.existing_key,
+                                          "browse"):
+        browse_key = body.existing_key
+    elif body.with_key:
+        browse_key = keys.rotate(merchant_id, "browse")
+        core.audit("INTEGRATION_PROMPT_ISSUED", {
+            "tool": body.tool[:40],
+            "rotated": True,
+            "reason": "no valid key was presented, so a new one was minted",
+        }, merchant_id=merchant_id)
+
     result = merchant_agent.build_prompt(merchant_id, body.tool, browse_key)
-    result["rotated"] = bool(browse_key)
+    result["rotated"] = bool(browse_key) and browse_key != body.existing_key
     result["note"] = (
         "This key is shown once. Any browse key you were using before has "
-        "stopped working." if browse_key else
+        "stopped working." if result["rotated"] else
+        "Same key as before — nothing was rotated." if browse_key else
         "Paste your browse key where the prompt marks it, or ask for one to "
         "be minted.")
+
+    events.record(merchant_id, "prompt_issued", query=body.tool,
+                  rotated=result["rotated"])
     return result
+
+
+@app.get("/v1/audit")
+def read_audit(limit: int = 100, merchant_id: str = Depends(authenticate)):
+    """A merchant's own record of what this system did on their behalf.
+
+    Kept behind their key rather than left to us to disclose. A ledger the
+    owner cannot read is not a ledger, and every row here is a decision made
+    about their money.
+    """
+    limit = max(1, min(int(limit), 500))
+    rows = db.query(
+        "SELECT seq, ts, action, detail, hash FROM audit "
+        "WHERE merchant_id = %s ORDER BY seq DESC LIMIT %s",
+        (merchant_id, limit))
+    return {"entries": [dict(r) for r in rows], "limit": limit}
+
+
+@app.get("/v1/audit/verify")
+def verify_audit(merchant_id: str = Depends(authenticate_full)):
+    """Recompute the hash chain and report whether it still holds.
+
+    The chain spans every merchant, so this proves the whole ledger is intact
+    rather than one merchant's slice — a row cannot be removed from the middle
+    without breaking every row after it, whoever it belonged to.
+
+    Tamper-evident, not tamper-proof: anyone with superuser access to the
+    database could rewrite the chain as well as the rows. Worth saying plainly
+    rather than implying more than it does.
+    """
+    intact, broken_at = core.verify_audit_chain()
+    return {
+        "intact": intact,
+        "broken_at_seq": broken_at,
+        "guarantee": "tamper-evident, not tamper-proof: this detects an edit "
+                     "made through the application, not one made by someone "
+                     "with superuser access to the database",
+    }
 
 
 @app.post("/v1/ask/shopper")

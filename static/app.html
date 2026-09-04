@@ -377,17 +377,30 @@ async function showPrompt(tool){
   const note = thinking("Let me get your API keys first");
 
   try {
-    // with_key mints a fresh browse key and writes it into the prompt. The
-    // key is generated server-side and shown once; nothing is generated in
-    // this page, and the old key stops working the moment this returns.
+    // Send back the key this browser was given at signup. The server checks
+    // it against the stored hash and writes it into the prompt unchanged, so
+    // opening this twice does not produce two keys — the second of which
+    // would have broken a storefront already wired with the first.
+    //
+    // with_key is the fallback: on a new machine there is nothing cached, so
+    // a fresh key is minted and the response says so.
+    let cached = null;
+    try { cached = localStorage.getItem("ccp_browse_key"); } catch (e) {}
+
     const res = await fetch("/v1/integration-prompt", {
       method: "POST",
       headers: {"Content-Type": "application/json"},
       credentials: "same-origin",
-      body: JSON.stringify({tool, with_key: true}),
+      body: JSON.stringify({tool, existing_key: cached, with_key: true}),
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body.detail || `${res.status}`);
+
+    // A mint replaces whatever this browser held.
+    if (body.rotated) {
+      const issued = (body.prompt.match(/COMMERCE_POLICY_API_KEY=(\S+)/) || [])[1];
+      try { if (issued) localStorage.setItem("ccp_browse_key", issued); } catch (e) {}
+    }
 
     note.outerHTML =
       `<div class="bubble them">

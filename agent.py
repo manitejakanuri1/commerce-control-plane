@@ -19,9 +19,11 @@ import json
 import logging
 import os
 import re
+import time
 
 import config
 import core
+import events
 import personalise
 import retrieval
 
@@ -262,7 +264,13 @@ def propose(merchant_id, request, budget_paise=None, customer_id=None):
     if budget_paise is None:
         budget_paise = _budget_from_text(request)
 
+    started = time.perf_counter()
     candidates = retrieval.search(merchant_id, request, limit=6)
+    events.record(merchant_id, "retrieval",
+                  results=len(candidates),
+                  duration_ms=int((time.perf_counter() - started) * 1000),
+                  backend=retrieval.backend_name())
+
     if not candidates:
         raise LookupError(f"no catalog products available for {merchant_id}")
 
@@ -278,12 +286,19 @@ def propose(merchant_id, request, budget_paise=None, customer_id=None):
             log.warning("personalisation unavailable (%s: %s)",
                         type(exc).__name__, exc)
 
+    model_started = time.perf_counter()
     proposal = _from_model(request, candidates, budget_paise, history)
     if proposal is None:
         proposal = _deterministic(candidates, budget_paise)
 
     proposal = _sanitise(proposal, candidates)
     proposal["budget_paise"] = budget_paise
+
+    events.record(merchant_id, "propose", query=request,
+                  results=len(proposal["lines"]),
+                  duration_ms=int((time.perf_counter() - model_started) * 1000),
+                  source=proposal["source"],
+                  discount_bps=proposal["discount_bps"])
 
     core.audit("PROPOSAL_MADE", {
         "request": request[:200],
@@ -292,4 +307,21 @@ def propose(merchant_id, request, budget_paise=None, customer_id=None):
         "source": proposal["source"],
         "personalised": features is not None,
     }, merchant_id=merchant_id)
+
+    # A personalised offer means two shoppers were quoted different prices for
+    # the same product, and one of them may eventually ask why. Without this
+    # row there is no answer — not a vague one, none at all. The shopper is
+    # recorded as an HMAC reference, so the record explains the decision
+    # without naming anybody.
+    if features is not None:
+        core.audit("OFFER_PERSONALISED", {
+            "buyer_ref": features.get("buyer_ref"),
+            "skus": [ln["sku"] for ln in proposal["lines"]],
+            "discount_bps": proposal["discount_bps"],
+            "categories": features.get("categories"),
+            "spend_band_paise": [features.get("typical_low_paise"),
+                                 features.get("typical_high_paise")],
+            "basis": "derived purchase history",
+        }, merchant_id=merchant_id)
+
     return proposal

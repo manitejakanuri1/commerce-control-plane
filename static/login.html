@@ -244,6 +244,23 @@ $("form").addEventListener("submit", async e => {
       return;
     }
 
+    // Signup returns both keys once and never again — only hashes are kept
+    // server-side. Holding the browse key here means the integration prompt
+    // can show the same key every time instead of minting a new one and
+    // killing the last, which would break a storefront already wired with it.
+    //
+    // The browse key cannot purchase, so a copy in this browser is worth far
+    // less than the convenience. The full key is deliberately not kept.
+    if (data.keys && data.keys.browse) {
+      try {
+        localStorage.setItem("ccp_browse_key", data.keys.browse);
+        localStorage.setItem("ccp_merchant_id", data.keys.merchant_id);
+      } catch (e) {
+        // Private windows and blocked site data both throw here. The prompt
+        // falls back to minting a key, which still works.
+      }
+    }
+
     show(`Signed in as ${data.user.name}. Taking you to setup…`, "ok");
     setTimeout(() => { location.href = "/app"; }, 900);
   } catch (err) {

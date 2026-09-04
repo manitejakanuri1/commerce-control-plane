@@ -207,6 +207,13 @@ def ask(merchant_id, question):
     name, args = routed
     days = _days(args.get("days"))
 
+    # Which questions merchants actually ask, and whether the router placed
+    # them. A run of out_of_scope on real questions is the signal that the
+    # tool list is missing something — which is exactly how the gap around
+    # "which product is selling more" was found.
+    events.record(merchant_id, "merchant_question", query=question,
+                  tool=name, router=source)
+
     handler = HANDLERS.get(name)
     if handler is None:
         log.warning("model chose unknown tool %r", name)
