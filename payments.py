@@ -207,6 +207,10 @@ def process_webhook(payload):
         # message we could not take back.
         messages.remember_contact(order["id"], _payer_contact(payload))
         messages.queue_invoice(order["id"])
+        # Sent here rather than by a worker elsewhere: the Cloud API is one
+        # HTTPS call, which a serverless function can make and a browser
+        # session could not. Anything that fails stays queued for the sweep.
+        messages.deliver_pending(merchant_id)
         result = f"order {order['id']} confirmed"
     else:
         core.release(merchant_id, order["id"])

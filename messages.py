@@ -201,6 +201,46 @@ def mark_sent(merchant_id, message_id):
     return True
 
 
+def deliver_pending(merchant_id, limit=25):
+    """Send what is waiting. Returns a count of each outcome.
+
+    Sending is an HTTPS call now rather than a browser session, so it happens
+    here rather than in a worker on a box somebody has to keep running. Called
+    right after a payment confirms, and again from the ops sweep so a message
+    written during an outage is not stranded.
+
+    Never raises. This is called from the webhook path, and a receipt is worth
+    less than the payment it confirms.
+    """
+    import whatsapp
+
+    counts = {"sent": 0, "failed": 0}
+    try:
+        waiting = pending(merchant_id, limit)
+    except Exception as exc:                              # noqa: BLE001
+        log.warning("could not read the queue for %s (%s: %s)",
+                    merchant_id, type(exc).__name__, exc)
+        return counts
+
+    for message in waiting:
+        if not message.get("contact"):
+            mark_failed(merchant_id, message["id"], "no contact on this order")
+            counts["failed"] += 1
+            continue
+        try:
+            whatsapp.send(merchant_id, message["contact"], message["body"]
+                          + (f"\n\n{message['link']}" if message["link"]
+                             else ""))
+        except Exception as exc:                          # noqa: BLE001
+            mark_failed(merchant_id, message["id"], str(exc))
+            counts["failed"] += 1
+            continue
+        mark_sent(merchant_id, message["id"])
+        counts["sent"] += 1
+
+    return counts
+
+
 def mark_failed(merchant_id, message_id, error=""):
     """One delivery attempt failed. Retried until MAX_ATTEMPTS.
 

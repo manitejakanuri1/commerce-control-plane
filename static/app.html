@@ -252,12 +252,19 @@
 
   .wa{margin:.9rem 0 0}
   .wabody{background:var(--white);border:1px solid var(--line);
-    border-radius:14px;padding:1.1rem;text-align:center}
-  /* White plate behind the code: a QR on a tinted background is read less
-     reliably, and a merchant blames their phone before they blame the page. */
-  .qr{width:210px;height:210px;display:block;margin:0 auto .7rem;
-    background:#fff;border-radius:10px;padding:8px;image-rendering:pixelated}
-  .wabody .sm{font-size:.79rem;color:var(--muted);line-height:1.55}
+    border-radius:14px;padding:1.2rem 1.3rem;text-align:left}
+  .waintro{margin:0 0 1rem;font-size:.88rem;color:var(--ink-2);line-height:1.55}
+  .walabel{display:block;font-size:.78rem;font-weight:500;color:var(--ink-2);
+    margin:0 0 .3rem}
+  .wainput{width:100%;font-family:var(--mono);font-size:.82rem;
+    color:var(--ink);background:var(--white);border:1px solid var(--btn-line);
+    border-radius:9px;padding:.6rem .7rem;margin:0 0 .85rem;outline:none;
+    transition:.15s}
+  .wainput:focus{border-color:var(--blue-border);
+    box-shadow:0 0 0 3px rgba(61,111,245,.12)}
+  .wabody .sm{font-size:.79rem;color:var(--muted);line-height:1.55;
+    margin:0 0 .9rem}
+  .waerr{margin:.7rem 0 0;font-size:.8rem;color:var(--block);line-height:1.5}
   .waok{font-size:.92rem;font-weight:600;color:var(--allow);line-height:1.6}
   .waok .sm{font-weight:400;color:var(--muted)}
   .bubble.said{color:var(--ink-2);padding:0 .2rem}
@@ -485,21 +492,15 @@ async function showPrompt(tool){
   }
 }
 
-// The delivery worker holds the WhatsApp session on a machine this page
-// cannot reach, and reports its QR code to the control plane. A WhatsApp code
-// lasts about twenty seconds, so this polls: whatever is on screen is the one
-// that currently works.
-let waPoll = null;
-
+// WhatsApp is a token and a phone number id, both from the merchant's own
+// Meta app. There is no QR, no browser and no server for them to keep
+// running — the previous approach needed all three, and the number carrying
+// their receipts could be banned for using it.
 function showWhatsApp(){
   const el = say("them", `<div class="wa" id="wa">
-    <div class="lead">One more step — connect WhatsApp so receipts reach
-      your customers.</div>
-    <div class="wabody"><div class="note">Checking your delivery worker…</div></div>
+    <div class="wabody"><div class="note">Checking…</div></div>
   </div>`);
-
   const body = el.querySelector(".wabody");
-  clearInterval(waPoll);
 
   const draw = async () => {
     let d;
@@ -513,34 +514,62 @@ function showWhatsApp(){
     }
 
     if (d.status === "connected"){
-      clearInterval(waPoll);
       body.innerHTML = `<div class="waok">WhatsApp connected${
         d.number ? ` — ${esc(d.number)}` : ""}<br>
-        <span class="sm">${esc(d.message)}</span></div>`;
+        <span class="sm">${esc(d.message)}${
+          d.pending ? ` ${d.pending} waiting to send.` : ""}</span></div>
+        <button class="tool" id="wa-off">Disconnect</button>`;
+      $("wa-off").addEventListener("click", async () => {
+        await fetch("/v1/whatsapp/disconnect",
+          {method:"POST", credentials:"same-origin"});
+        draw();
+      });
       return;
     }
 
-    if (d.qr){
-      // The image is a data URI the worker produced. Rendered as a src rather
-      // than injected as markup, so a malformed value fails to load instead of
-      // becoming something the page executes.
-      const img = document.createElement("img");
-      img.className = "qr";
-      img.alt = "WhatsApp QR code";
-      img.src = d.qr;
-      body.replaceChildren(img);
-      const hint = document.createElement("div");
-      hint.className = "sm";
-      hint.textContent = d.message + " Refreshes automatically.";
-      body.appendChild(hint);
-      return;
-    }
+    body.innerHTML = `
+      <p class="waintro">Connect your own WhatsApp business number. Receipts
+        then arrive from the shop the customer bought from.</p>
+      <label class="walabel" for="wa-phone">Phone number ID</label>
+      <input class="wainput" id="wa-phone" placeholder="123456789012345"
+        autocomplete="off" spellcheck="false">
+      <label class="walabel" for="wa-token">Access token</label>
+      <input class="wainput" id="wa-token" type="password"
+        placeholder="EAAG..." autocomplete="off" spellcheck="false">
+      <p class="sm">Both are on your app at developers.facebook.com, under
+        WhatsApp &rarr; API Setup. The temporary token works for testing.</p>
+      <button class="tool" id="wa-go">Connect</button>
+      <div class="waerr" id="wa-err" hidden></div>`;
 
-    body.innerHTML = `<div class="note">${esc(d.message || "Waiting…")}</div>`;
+    $("wa-go").addEventListener("click", async () => {
+      const err = $("wa-err");
+      err.hidden = true;
+      $("wa-go").disabled = true;
+      $("wa-go").textContent = "Checking with Meta…";
+      try {
+        // Verified against Meta before it is stored. A token accepted here
+        // and found wrong later fails silently, on somebody's receipt.
+        const res = await fetch("/v1/whatsapp/connect", {
+          method:"POST", credentials:"same-origin",
+          headers:{"Content-Type":"application/json"},
+          body: JSON.stringify({
+            access_token: $("wa-token").value.trim(),
+            phone_number_id: $("wa-phone").value.trim()}),
+        });
+        const d = await res.json();
+        if (!res.ok) throw new Error(d.detail || `${res.status}`);
+        draw();
+      } catch (e) {
+        err.textContent = String(e.message);
+        err.hidden = false;
+      } finally {
+        $("wa-go").disabled = false;
+        $("wa-go").textContent = "Connect";
+      }
+    });
   };
 
   draw();
-  waPoll = setInterval(draw, 4000);
 }
 
 function codeCard(title, text){

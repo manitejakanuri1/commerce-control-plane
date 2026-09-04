@@ -1,4 +1,4 @@
-﻿"""HTTP surface.
+"""HTTP surface.
 
 Three kinds of caller reach this service:
 
@@ -34,6 +34,7 @@ import merchant_agent
 import messages
 import payments
 import policy_log
+import whatsapp
 import retrieval
 from orchestrator import propose_offer, resolve, start_purchase
 
@@ -233,13 +234,14 @@ class MessageFailure(BaseModel):
     error: str = Field("", max_length=300)
 
 
-class WhatsAppState(BaseModel):
-    status: str = Field(..., pattern="^(waiting|connected|stopped)$")
-    # Base64 PNG. Generous but bounded — a QR image is a few kilobytes and
-    # this field arrives from a process on somebody else's machine.
-    qr: str | None = Field(None, max_length=200_000)
-    connected_number: str | None = Field(None, max_length=32)
-    version: str | None = Field(None, max_length=32)
+class WhatsAppConnect(BaseModel):
+    """Credentials from the merchant's own Meta app.
+
+    Both come from developers.facebook.com. Nothing else is needed: no
+    browser, no QR, no server for the merchant to keep running.
+    """
+    access_token: str = Field(..., min_length=20, max_length=1000)
+    phone_number_id: str = Field(..., min_length=5, max_length=40)
 
 
 class PolicyLogRecord(BaseModel):
@@ -580,74 +582,70 @@ def message_failed(message_id: str, body: MessageFailure,
 # --------------------------------------------------------------------------
 # linking a merchant's WhatsApp
 # --------------------------------------------------------------------------
-# The delivery worker holds the WhatsApp session and runs on a box this
-# service cannot reach. It reports its QR code here so the merchant can scan
-# it from the page they are already on, rather than being sent to a terminal.
+# The Cloud API is one HTTPS call with a token, so there is no session to
+# hold, no browser, and nothing for the merchant to keep running. Both
+# routes are session-authenticated: a token that can send as their business
+# is set by the person signed in, never by an API key that might have leaked.
 
-# A WhatsApp QR lasts about twenty seconds. Anything older is not shown at
-# all: a stale code renders as a perfectly scannable image that simply does
-# not work, and a merchant will blame their phone before they blame us.
-QR_FRESH_SECONDS = 45
+@app.post("/v1/whatsapp/connect")
+def whatsapp_connect(body: WhatsAppConnect,
+                     user: dict = Depends(current_user)):
+    """Store a merchant's Cloud API credentials, after proving they work.
+
+    Verified against Meta before anything is saved. A token accepted here and
+    found to be wrong later fails silently, on somebody's receipt, and the
+    merchant had every reason to believe they were connected.
+    """
+    merchant_id = user["merchant_id"]
+    if not merchant_id:
+        raise HTTPException(409, "this account has no merchant yet")
+
+    try:
+        result = whatsapp.connect(merchant_id, body.access_token,
+                                  body.phone_number_id)
+    except whatsapp.WhatsAppError as exc:
+        raise HTTPException(400, str(exc))
+
+    core.audit("WHATSAPP_LINKED", {"number": result["number"],
+                                   "provider": "cloud_api"},
+               merchant_id=merchant_id)
+    return result
 
 
-@app.post("/v1/whatsapp/state")
-def whatsapp_state(body: WhatsAppState,
-                   merchant_id: str = Depends(authenticate_full)):
-    """The worker reporting where it has got to."""
-    qr = body.qr if body.status == "waiting" else None
-    db.execute(
-        "INSERT INTO whatsapp_sessions (merchant_id, status, qr, "
-        "connected_number, worker_version, updated_at) "
-        "VALUES (%s, %s, %s, %s, %s, now()) "
-        "ON CONFLICT (merchant_id) DO UPDATE SET "
-        "status = EXCLUDED.status, qr = EXCLUDED.qr, "
-        "connected_number = COALESCE(EXCLUDED.connected_number, "
-        "                            whatsapp_sessions.connected_number), "
-        "worker_version = EXCLUDED.worker_version, updated_at = now()",
-        (merchant_id, body.status, qr, body.connected_number, body.version))
-
-    if body.status == "connected":
-        core.audit("WHATSAPP_LINKED",
-                   {"number": body.connected_number}, merchant_id=merchant_id)
-    return {"recorded": body.status}
+@app.post("/v1/whatsapp/disconnect")
+def whatsapp_disconnect(user: dict = Depends(current_user)):
+    merchant_id = user["merchant_id"]
+    if not merchant_id:
+        raise HTTPException(409, "this account has no merchant yet")
+    whatsapp.disconnect(merchant_id)
+    core.audit("WHATSAPP_UNLINKED", {}, merchant_id=merchant_id)
+    return {"connected": False}
 
 
 @app.get("/v1/whatsapp/status")
 def whatsapp_status(user: dict = Depends(current_user)):
-    """What the setup page should show right now."""
     merchant_id = user["merchant_id"]
     if not merchant_id:
         raise HTTPException(409, "this account has no merchant yet")
 
     row = db.query_one(
-        "SELECT status, qr, connected_number, updated_at, "
-        "EXTRACT(EPOCH FROM (now() - updated_at)) AS age "
-        "FROM whatsapp_sessions WHERE merchant_id = %s", (merchant_id,))
+        "SELECT status, connected_number, phone_number_id FROM "
+        "whatsapp_sessions WHERE merchant_id = %s AND status = 'connected'",
+        (merchant_id,))
 
     if row is None:
-        return {"status": "no_worker", "qr": None,
-                "message": "No delivery worker is reporting in. Start it on "
-                           "your server and a code will appear here."}
+        return {"status": "not_connected",
+                "message": "Paste a WhatsApp Cloud API token and phone "
+                           "number id. Receipts then send from your own "
+                           "business number."}
 
-    age = int(row["age"] or 0)
+    waiting = db.query_one(
+        "SELECT count(*) AS n FROM messages WHERE merchant_id = %s "
+        "AND status = 'pending'", (merchant_id,))
 
-    if row["status"] == "connected":
-        return {"status": "connected", "qr": None,
-                "number": row["connected_number"],
-                "message": "WhatsApp is linked. Receipts go out from this "
-                           "number."}
-
-    if age > QR_FRESH_SECONDS:
-        # The worker stopped, or lost its connection to us. Either way the
-        # code on file is dead and showing it would waste the merchant's time.
-        return {"status": "stale", "qr": None, "seconds_since_report": age,
-                "message": "The delivery worker last reported "
-                           f"{age} seconds ago. Check that it is running."}
-
-    return {"status": row["status"], "qr": row["qr"],
-            "seconds_since_report": age,
-            "message": "Open WhatsApp on the shop's phone, then Settings, "
-                       "Linked devices, Link a device."}
+    return {"status": "connected", "number": row["connected_number"],
+            "pending": waiting["n"] if waiting else 0,
+            "message": "Connected. Receipts go out from this number."}
 
 
 @app.get("/v1/audit")

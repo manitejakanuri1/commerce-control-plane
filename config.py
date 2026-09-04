@@ -115,6 +115,10 @@ CRON_SECRET = _get("CRON_SECRET", "")
 # notices and upgrades.
 MIN_ENGINE_VERSION = _get("MIN_ENGINE_VERSION", "1.0.0")
 
+# Prefixed to bare ten-digit phone numbers before sending. Razorpay reports
+# E.164 already; this is for a merchant whose own records store ten digits.
+DEFAULT_COUNTRY_CODE = _get("DEFAULT_COUNTRY_CODE", "91")
+
 # Off in serverless, where startup runs on every cold start: migrating there
 # adds latency to a request and lets instances race over the same DDL.
 RUN_MIGRATIONS_ON_STARTUP = _get(
