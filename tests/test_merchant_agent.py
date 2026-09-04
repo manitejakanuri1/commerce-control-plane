@@ -171,17 +171,38 @@ def test_a_shop_with_no_data_is_told_so_not_given_advice(merchant):
     assert "not enough" in result["text"].lower()
 
 
-def test_a_real_finding_is_surfaced_even_when_it_cannot_be_priced(merchant):
-    """A shop with no confirmed orders has no average order value, so every
-    finding prices at zero. Filtering on that reported "nothing is costing you
-    money" to a merchant who had just had eighteen sales refused."""
-    seed_searches(merchant)
-    seed_decisions(merchant)
+def test_a_real_finding_is_surfaced_even_when_it_cannot_be_priced():
+    """A shop with no confirmed orders and no catalog has no average order
+    value, so every finding prices at zero. Filtering on that reported
+    "nothing is costing you money" to a merchant who had just had eighteen
+    sales refused.
 
-    result = agent.ask(merchant, "how do i grow my business")
+    Uses its own merchant rather than the fixture's: that one has a seeded
+    catalog, so a median price stands in for the missing order value and the
+    findings do get priced. The unpriced path needs a shop with neither.
+    """
+    with db.transaction() as conn:
+        conn.execute("INSERT INTO merchants (id, name, api_key_hash, "
+                     "max_discount_bps) VALUES ('bare', 'Bare', 'barehash', "
+                     "1000)")
+
+    seed_searches("bare")
+    seed_decisions("bare")
+
+    result = agent.ask("bare", "how do i grow my business")
     assert result["tool"] == "growth_plan"
     assert "refused 18 sales" in result["text"]
     assert result["data"]["impact_priced"] is False
+
+
+def test_the_cap_finding_stays_quiet_when_the_cap_is_not_what_binds(merchant):
+    """The fixture merchant caps at 15%, and the seeded refusals report a band
+    of 14% — so the cap is not the limit, and telling them to raise it would
+    be advice that changes nothing."""
+    seed_searches(merchant)
+    seed_decisions(merchant)          # allowed_bps 1400, cap 1500
+
+    assert growth.cap_too_tight(merchant, days=30) is None
 
 
 def test_findings_are_ranked_by_rupees_when_they_can_be(merchant):
