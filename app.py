@@ -678,6 +678,16 @@ def purchase(body: PurchaseRequest,
         response["razorpay_order_id"] = result.rp_order_id
         response["razorpay_key_id"] = config.RAZORPAY_KEY_ID or None
 
+    # The kind existed and nothing ever wrote it, so conversion read as zero
+    # for every merchant and growth.conversion_leak could never fire. A metric
+    # that is always zero looks like a shop with a problem, not like a metric
+    # nobody is recording — which is the worse of the two failures.
+    events.record(merchant_id,
+                  "purchase_started" if result.ok else "propose",
+                  query=body.request,
+                  results=len(result.quote["items"]) if result.ok else 0,
+                  approved=result.ok, stage=result.stage)
+
     return response
 
 
