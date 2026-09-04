@@ -401,13 +401,22 @@ def rotate_key(body: RotateKeyRequest, user: dict = Depends(current_user)):
 # summary of each decision here and never waits for the answer, so this route
 # may be slow or down without touching anybody's checkout.
 #
-# A full key is required. The engine is server-side by definition, and a
-# browse key arriving here means a merchant has pasted their public key into a
-# server config — which is worth refusing loudly rather than accepting.
+# Any valid key, browse included.
+#
+# This required a full key at first, on the reasoning that a browse key on a
+# server meant somebody had pasted their public key into a server config. That
+# was wrong about what the merchant's server actually does: it searches
+# through us and it pays through Razorpay directly, with its own Razorpay
+# credentials. It never buys through this API, so browse is the correct scope
+# for it to hold — and the integration prompt issues exactly that. Demanding
+# full here would have 403'd every log the engine ever sent.
+#
+# Reporting a decision cannot move money or change a catalog, so a leaked
+# browse key used here can add noise to a merchant's own log and nothing else.
 
 @app.post("/v1/policy/logs")
 def receive_policy_log(body: PolicyLogRecord,
-                       merchant_id: str = Depends(authenticate_full),
+                       merchant_id: str = Depends(authenticate),
                        x_engine_version: str = Header(None)):
     try:
         policy_log.check_version(x_engine_version or body.engine_version)
