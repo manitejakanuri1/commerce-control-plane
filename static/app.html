@@ -227,21 +227,27 @@
   /* Four squares rather than a list. A connector picker is scanned by logo
      before it is read, and equal tiles say the four are alternatives to each
      other in a way stacked rows do not. */
-  .conns{display:grid;grid-template-columns:repeat(4,1fr);gap:.65rem;
-    margin:1rem 0 0}
-  @media (max-width:640px){.conns{grid-template-columns:repeat(2,1fr)}}
+  /* minmax(0,1fr), not 1fr. A bare 1fr is minmax(auto,1fr), so a tile whose
+     content is wider than its share refuses to shrink and pushes the last one
+     outside the card — which is exactly what "Facebook, Instagram" did. */
+  .conns{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
+    gap:.65rem;margin:1rem 0 0}
+  @media (max-width:640px){
+    .conns{grid-template-columns:repeat(2,minmax(0,1fr))}}
 
-  .conn{position:relative;aspect-ratio:1;display:flex;flex-direction:column;
-    align-items:center;justify-content:center;gap:.5rem;text-align:center;
-    padding:.9rem .7rem;font-family:inherit;cursor:pointer;
-    background:var(--white);border:1px solid var(--btn-line);
+  .conn{position:relative;aspect-ratio:1;min-width:0;display:flex;
+    flex-direction:column;align-items:center;justify-content:center;
+    gap:.5rem;text-align:center;padding:.9rem .55rem;font-family:inherit;
+    cursor:pointer;background:var(--white);border:1px solid var(--btn-line);
     border-radius:14px;transition:.18s cubic-bezier(.16,1,.3,1)}
   .conn:hover{transform:translateY(-2px);border-color:var(--faint);
     box-shadow:0 8px 24px -14px rgba(20,22,26,.35)}
   .conn svg{width:34px;height:34px;flex:none}
-  .connname{margin:0;font-size:.85rem;font-weight:600;color:var(--ink);
-    letter-spacing:-.015em;line-height:1.25}
-  .connwhat{margin:0;font-size:.72rem;color:var(--muted);line-height:1.4}
+  .connname{margin:0;max-width:100%;font-size:.85rem;font-weight:600;
+    color:var(--ink);letter-spacing:-.015em;line-height:1.25;
+    overflow-wrap:anywhere}
+  .connwhat{margin:0;max-width:100%;font-size:.72rem;color:var(--muted);
+    line-height:1.4;overflow-wrap:anywhere}
 
   /* Labelled rather than disabled. A connector that does something real, just
      less than the others, should still be reachable — and saying which part
