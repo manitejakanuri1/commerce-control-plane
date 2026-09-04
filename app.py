@@ -31,6 +31,7 @@ import db
 import events
 import keys
 import merchant_agent
+import messages
 import payments
 import policy_log
 import retrieval
@@ -226,6 +227,10 @@ class IntegrationPromptRequest(BaseModel):
     # Mint a new key when no valid one was presented. Minting invalidates the
     # previous key, so it is not something a page should do casually.
     with_key: bool = False
+
+
+class MessageFailure(BaseModel):
+    error: str = Field("", max_length=300)
 
 
 class PolicyLogRecord(BaseModel):
@@ -527,6 +532,40 @@ def integration_prompt(body: IntegrationPromptRequest,
     events.record(merchant_id, "prompt_issued", query=body.tool,
                   rotated=result["rotated"])
     return result
+
+
+# --------------------------------------------------------------------------
+# the delivery queue
+# --------------------------------------------------------------------------
+# This service writes messages and never sends them. A serverless function
+# cannot hold a WhatsApp session, so an always-on worker elsewhere polls this
+# queue, delivers, and reports back.
+#
+# A full key, because a pending row carries the payer's contact — the one
+# detail this system holds, and only between checkout and receipt.
+
+@app.get("/v1/messages/pending")
+def pending_messages(limit: int = 50,
+                     merchant_id: str = Depends(authenticate_full)):
+    return {"messages": messages.pending(merchant_id, limit)}
+
+
+@app.post("/v1/messages/{message_id}/sent")
+def message_sent(message_id: str,
+                 merchant_id: str = Depends(authenticate_full)):
+    """Delivered. The contact is destroyed here rather than by the worker, so
+    forgetting to delete it is not something a worker author can do."""
+    if not messages.mark_sent(merchant_id, message_id):
+        raise HTTPException(404, "no pending message with that id")
+    return {"status": "sent"}
+
+
+@app.post("/v1/messages/{message_id}/failed")
+def message_failed(message_id: str, body: MessageFailure,
+                   merchant_id: str = Depends(authenticate_full)):
+    if not messages.mark_failed(merchant_id, message_id, body.error):
+        raise HTTPException(404, "no such message")
+    return {"status": "recorded"}
 
 
 @app.get("/v1/audit")

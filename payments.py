@@ -22,6 +22,7 @@ import uuid
 import config
 import core
 import db
+import messages
 
 log = logging.getLogger("payments")
 
@@ -150,6 +151,20 @@ def record_webhook(payload):
         return False, event_id
 
 
+def _payer_contact(payload):
+    """The payer's phone, as Razorpay reports it.
+
+    The only contact detail this system ever touches, and the only reason it
+    is touched is that a receipt has to go somewhere. It is encrypted onto the
+    order and destroyed when the receipt is delivered.
+
+    Absent when the shopper paid by a method that carries no phone, which is
+    ordinary: the order still confirms and there is simply no receipt to send.
+    """
+    entity = payload.get("payload", {}).get("payment", {}).get("entity", {})
+    return (entity.get("contact") or "").strip() or None
+
+
 def process_webhook(payload):
     """Apply one already-recorded event. Returns a short outcome string."""
     event_id = payload.get("id") or payload.get("event_id")
@@ -187,9 +202,17 @@ def process_webhook(payload):
 
     if target == "CONFIRMED":
         core.commit_reservation(merchant_id, order["id"])
+        # Only after the stock is committed and the transition audited. A
+        # receipt for a payment that had not finished settling would be a
+        # message we could not take back.
+        messages.remember_contact(order["id"], _payer_contact(payload))
+        messages.queue_invoice(order["id"])
         result = f"order {order['id']} confirmed"
     else:
         core.release(merchant_id, order["id"])
+        # This order will never produce a receipt, so nothing here needs a
+        # way to reach the payer.
+        messages.forget_contact(order["id"])
         result = f"order {order['id']} failed, stock released"
 
     _mark_processed(event_id)
