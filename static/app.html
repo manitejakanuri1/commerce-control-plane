@@ -249,12 +249,6 @@
   .connwhat{margin:0;max-width:100%;font-size:.72rem;color:var(--muted);
     line-height:1.4;overflow-wrap:anywhere}
 
-  /* Labelled rather than disabled. A connector that does something real, just
-     less than the others, should still be reachable — and saying which part
-     works is more use than a greyed-out button. */
-  .soon{position:absolute;top:.55rem;right:.55rem;font-size:.62rem;
-    font-weight:500;color:var(--faint);border:1px solid var(--btn-line);
-    border-radius:5px;padding:.08rem .3rem;letter-spacing:0}
 
   .wa{margin:.9rem 0 0}
   .wabody{background:var(--white);border:1px solid var(--line);
@@ -755,14 +749,14 @@ const LOGOS = {
 };
 
 const CONNECTIONS = [
-  {id:"website", name:"Your website", ready:true, what:"Agentic search",
+  {id:"website", name:"Your website", what:"Agentic search",
    action:"Get the prompt"},
-  {id:"whatsapp", name:"WhatsApp", ready:true, what:"Receipts and offers",
+  {id:"whatsapp", name:"WhatsApp", what:"Receipts and offers",
    action:"Connect"},
-  {id:"facebook", name:"Meta Ads", ready:false, what:"Facebook, Instagram",
+  {id:"facebook", name:"Meta Ads", what:"Facebook, Instagram",
    action:"Authorise",
    href:"https://onboard.windsor.ai/connect?connector=facebook&client=CLAUDE&next=/facebook/authorize"},
-  {id:"google_ads", name:"Google Ads", ready:false, what:"Search campaigns",
+  {id:"google_ads", name:"Google Ads", what:"Search campaigns",
    action:"Authorise",
    href:"https://onboard.windsor.ai/connect?connector=google_ads&client=CLAUDE&next=/google_ads/authorize"},
 ];
@@ -772,7 +766,6 @@ function showConnections(){
     <h3>What would you like to connect?</h3>
     <div class="conns">${CONNECTIONS.map(c => `
       <button class="conn" data-conn="${c.id}">
-        ${c.ready ? "" : `<span class="soon">read-only</span>`}
         ${LOGOS[c.id]}
         <p class="connname">${esc(c.name)}</p>
         <p class="connwhat">${esc(c.what)}</p>
