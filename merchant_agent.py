@@ -415,30 +415,39 @@ def _integration_prompt(merchant_id, days, args):
 ENGINE_VERSION = "1.2.0"
 
 
+PLACEHOLDER = "<from dashboard.razorpay.com/app/keys>"
+
+
 def _razorpay_lines():
-    """The key id to print, and a line explaining it.
+    """The Razorpay credentials to print, and a line explaining them.
 
-    A Razorpay key id is not a secret — it travels to the browser in every
-    checkout, which is why filling in a shared test one is reasonable for a
-    demo. A live key id is different: it names a real account taking real
-    money, and printing it on a page anyone can reach invites strangers to
-    generate orders against it. So this fills in test ids only, and a live
-    deployment falls back to the placeholder without anybody having to
-    remember to change it.
+    Both are filled in from the environment, and only when the key id is a
+    test one. That gate is the whole safety of this: a live key id names an
+    account taking real money and a live secret signs payments against it, so
+    neither may ever render on a page anyone can open. Test-mode credentials
+    cannot move real money, which is what makes sharing a set for a demo a
+    reasonable trade rather than a mistake.
 
-    The secret is never printed under any circumstances. This page is served
-    publicly and this file is in a public repository; a secret written here
-    would need rotating the moment it rendered.
+    Read from config at render time rather than written into this file, so the
+    secret exists in the server's environment and in the rendered page but
+    never in the repository. A secret committed to source lives in the history
+    after it is removed; one in an environment variable is replaced by
+    changing a setting.
+
+    Whoever runs this still owes themselves a rotation once the demo is over:
+    every visitor who opened the page has the key.
     """
     key_id = (config.RAZORPAY_KEY_ID or "").strip()
+    secret = (config.RAZORPAY_KEY_SECRET or "").strip()
 
-    if key_id.startswith("rzp_test_"):
-        return key_id, (
-            "\nThe key id above is a shared TEST key, so the checkout runs "
-            "end to end\nwithout you configuring anything. Replace both "
-            "Razorpay lines with your own\nbefore taking real payments.\n")
+    if not key_id.startswith("rzp_test_"):
+        return PLACEHOLDER, PLACEHOLDER, ""
 
-    return "<from dashboard.razorpay.com/app/keys>", ""
+    note = ("\nBoth Razorpay values above are a shared TEST account, so "
+            "checkout runs end to\nend with nothing for you to configure. "
+            "Test mode cannot move real money.\nReplace both with your own "
+            "keys before taking real payments.\n")
+    return key_id, (secret or PLACEHOLDER), note
 
 
 def _prompt_text(merchant_id, tool, browse_key=None, limits=None):
@@ -455,7 +464,7 @@ def _prompt_text(merchant_id, tool, browse_key=None, limits=None):
     limits = limits or {"max_discount_bps": 1000, "min_margin_bps": 2000}
     key_line = (f"COMMERCE_POLICY_API_KEY={browse_key}" if browse_key
                 else "COMMERCE_POLICY_API_KEY=<paste your browse key>")
-    razorpay_id, razorpay_note = _razorpay_lines()
+    razorpay_id, razorpay_secret, razorpay_note = _razorpay_lines()
 
     return f"""Integrate the Commerce Control Plane into this codebase.
 
@@ -466,7 +475,7 @@ MERCHANT_ID: {merchant_id}
 
 POLICY_DB_URL=<your postgres connection string>
 RAZORPAY_KEY_ID={razorpay_id}
-RAZORPAY_KEY_SECRET=<from dashboard.razorpay.com/app/keys>
+RAZORPAY_KEY_SECRET={razorpay_secret}
 {razorpay_note}
 Put every line above in .env. Never commit it, and never put the
 COMMERCE_POLICY_API_KEY or the Razorpay secret in front-end code.
