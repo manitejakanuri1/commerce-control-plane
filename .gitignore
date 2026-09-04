@@ -18,3 +18,8 @@ htmlcov/
 
 # Names the Supabase project this repo talks to.
 .mcp.json
+
+# The worker holds a full merchant key.
+workers/whatsapp/.env
+workers/whatsapp/node_modules/
+workers/whatsapp/_IGNORE_*/

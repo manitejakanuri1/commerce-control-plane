@@ -1,0 +1,27 @@
+[Unit]
+Description=Commerce Control Plane WhatsApp delivery worker
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/commerce-whatsapp
+EnvironmentFile=/home/ubuntu/commerce-whatsapp/.env
+ExecStart=/usr/bin/node index.js
+
+# Chromium is heavy and a box that runs out of memory kills it silently, so
+# restart on any exit rather than only on failure.
+Restart=always
+RestartSec=15
+
+# The session is on disk, so a restart reconnects without another QR scan.
+# Without that, an overnight reboot would stop receipts going out and nobody
+# would notice until a customer asked where theirs was.
+
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=commerce-whatsapp
+
+[Install]
+WantedBy=multi-user.target
