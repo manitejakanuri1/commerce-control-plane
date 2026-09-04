@@ -245,12 +245,12 @@
 
   <div class="actions">
     <button class="btn primary" data-try="integrate this with my website">
-      Integrate with a prompt</button>
-    <button class="btn ghost" data-try="something to block noise on a flight under 3000">
+      Integrate with my website with a prompt</button>
+    <button class="btn ghost" id="later">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
         stroke-width="2" stroke-linecap="round" aria-hidden="true">
-        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
-      Try a shopper request</button>
+        <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+      I'll do it later</button>
   </div>
 
   <div class="cards">
@@ -452,10 +452,23 @@ $("q").addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey){ e.preventDefault();
     $("form").dispatchEvent(new Event("submit")); }
 });
-// The sample buttons demonstrate the buying path, so they go to the shopper
-// route explicitly rather than being guessed at by the router.
+// data-try holds a question the merchant is asking about their own shop, so
+// it goes to their agent. data-shopper holds a customer's request and runs
+// the buying path instead. An earlier version sent every button to the
+// shopper route, which meant "import my product catalog" was answered as
+// though a customer had asked to buy one.
 document.querySelectorAll("[data-try]").forEach(b =>
-  b.addEventListener("click", () => ask(b.dataset.try, "shopper")));
+  b.addEventListener("click", () => ask(b.dataset.try)));
+document.querySelectorAll("[data-shopper]").forEach(b =>
+  b.addEventListener("click", () => ask(b.dataset.shopper, "shopper")));
+
+// Dismisses the suggestions and leaves the prompt box. Nothing is sent —
+// the button says "later", so it must not quietly start something now.
+$("later").addEventListener("click", () => {
+  document.querySelector(".actions").hidden = true;
+  document.querySelector(".cards").hidden = true;
+  $("q").focus();
+});
 </script>
 </body>
 </html>
