@@ -218,6 +218,13 @@ class AskRequest(BaseModel):
     question: str = Field(..., min_length=1, max_length=1000)
 
 
+class IntegrationPromptRequest(BaseModel):
+    tool: str = Field("your coding tool", max_length=40)
+    # Defaults to False. Minting a key invalidates the previous one, and that
+    # is not something a page should do because somebody opened it.
+    with_key: bool = False
+
+
 class PolicyLogRecord(BaseModel):
     """One decision, as reported by a merchant's own policy engine.
 
@@ -456,6 +463,34 @@ def ask(body: AskRequest, user: dict = Depends(current_user)):
     if not user["merchant_id"]:
         raise HTTPException(409, "this account has no merchant yet")
     return merchant_agent.ask(user["merchant_id"], body.question)
+
+
+@app.post("/v1/integration-prompt")
+def integration_prompt(body: IntegrationPromptRequest,
+                       user: dict = Depends(current_user)):
+    """The paste-ready prompt, optionally with a freshly minted browse key.
+
+    with_key=True rotates the browse key and writes the new one into the
+    prompt. Rotation is the only way to put a real key in here — keys are
+    stored hashed and shown once, so the existing one cannot be read back.
+
+    That means the previous browse key stops working immediately. Said plainly
+    in the response rather than buried, because a merchant who has already
+    deployed one will otherwise find out from a broken storefront.
+    """
+    merchant_id = user["merchant_id"]
+    if not merchant_id:
+        raise HTTPException(409, "this account has no merchant yet")
+
+    browse_key = keys.rotate(merchant_id, "browse") if body.with_key else None
+    result = merchant_agent.build_prompt(merchant_id, body.tool, browse_key)
+    result["rotated"] = bool(browse_key)
+    result["note"] = (
+        "This key is shown once. Any browse key you were using before has "
+        "stopped working." if browse_key else
+        "Paste your browse key where the prompt marks it, or ask for one to "
+        "be minted.")
+    return result
 
 
 @app.post("/v1/ask/shopper")

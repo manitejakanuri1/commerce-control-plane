@@ -21,6 +21,7 @@ import json
 import logging
 
 import config
+import db
 import events
 import growth
 import policy_log
@@ -374,51 +375,122 @@ def _shop_activity(merchant_id, days, args):
     return _answer("shop_activity", "\n".join(lines), data=summary)
 
 
+def merchant_limits(merchant_id):
+    row = db.query_one(
+        "SELECT max_discount_bps, min_margin_bps FROM merchants WHERE id = %s",
+        (merchant_id,))
+    return dict(row) if row else None
+
+
+def build_prompt(merchant_id, tool, browse_key=None):
+    """Assemble the prompt, with the merchant's real limits in it."""
+    tool = (tool or "your coding tool").strip()[:40]
+    return {
+        "tool": tool,
+        "merchant_id": merchant_id,
+        "key_included": bool(browse_key),
+        "prompt": _prompt_text(merchant_id, tool, browse_key,
+                               merchant_limits(merchant_id)),
+    }
+
+
 def _integration_prompt(merchant_id, days, args):
     tool = (args.get("tool") or "your coding tool").strip()[:40]
+    data = build_prompt(merchant_id, tool)
     return _answer(
         "integration_prompt",
-        f"Here is the prompt for {tool}. Your browse key is not shown "
-        f"because keys are only ever displayed once — rotate it in Settings "
-        f"to mint a fresh one, then paste it where marked.",
-        data={"tool": tool, "merchant_id": merchant_id,
-              "prompt": _prompt_text(merchant_id, tool)})
+        f"Here is the prompt for {tool}. The browse key is left blank — keys "
+        f"are shown once and cannot be read back. Use the button on the tool "
+        f"picker to mint a fresh one written straight into the prompt.",
+        data=data)
 
 
-def _prompt_text(merchant_id, tool):
+ENGINE_VERSION = "1.2.0"
+
+
+def _prompt_text(merchant_id, tool, browse_key=None, limits=None):
+    """The prompt a merchant pastes into their coding tool.
+
+    browse_key is written in only when the caller has just minted one. Keys
+    are displayed once and never recoverable, so every other caller gets a
+    placeholder — a prompt that quietly carried a wrong key would fail at
+    runtime, in their codebase, with no indication of why.
+
+    Razorpay's own keys stay placeholders regardless. They belong to the
+    merchant's Razorpay account, not to us, and we have never held them.
+    """
+    limits = limits or {"max_discount_bps": 1000, "min_margin_bps": 2000}
+    key_line = (f"COMMERCE_POLICY_API_KEY={browse_key}" if browse_key
+                else "COMMERCE_POLICY_API_KEY=<paste your browse key>")
+
     return f"""Integrate the Commerce Control Plane into this codebase.
 
-── INSTALL ──
-pip install commerce-policy=={growth_engine_version()}
+=== CREDENTIALS ===
 
-── CONFIG ── policy.config.json
+MERCHANT_ID: {merchant_id}
+{key_line}
+
+POLICY_DB_URL=<your postgres connection string>
+RAZORPAY_KEY_ID=<from dashboard.razorpay.com/app/keys>
+RAZORPAY_KEY_SECRET=<from dashboard.razorpay.com/app/keys>
+
+Put every line above in .env. Never commit it, and never put the
+COMMERCE_POLICY_API_KEY or either Razorpay value in front-end code.
+
+=== INSTALL ===
+
+pip install commerce-policy=={ENGINE_VERSION}
+
+Create policy.config.json in the project root:
+
 {{
   "merchant_id": "{merchant_id}",
-  "max_discount_bps": 1000,
-  "min_margin_bps": 2000,
+  "max_discount_bps": {limits['max_discount_bps']},
+  "min_margin_bps": {limits['min_margin_bps']},
   "products_table": "products",
+  "sku_column": "sku",
+  "price_column": "price",
+  "stock_column": "stock",
   "cost_column": "cost"
 }}
 
-── SECRETS ── .env, never in code
-COMMERCE_POLICY_API_KEY=<paste your browse key>
-POLICY_DB_URL=<your postgres url>
-RAZORPAY_KEY_ID=<from your Razorpay dashboard>
-RAZORPAY_KEY_SECRET=<from your Razorpay dashboard>
+Adjust the four column names to match this project's own schema.
 
-── TASKS ──
-1. commerce-policy migrate --storefront-role <your web app's db role>
-2. Add POST /agent/search  - forwards to the control plane, returns products
-3. Add POST /agent/offer   - calls policy.check() locally; if approved,
-                             create the Razorpay order
-4. Hook the site's search box to /agent/search
+=== TASK ===
 
-Do not write margin or discount logic. The package handles it, and a second
-implementation will disagree with the first."""
+Detect the project stack and implement agentic search with:
 
+1. Run: commerce-policy migrate --storefront-role <this app's database role>
+   This revokes the policy schema from the web app's role, so no bug in the
+   site can read a cost.
 
-def growth_engine_version():
-    return "1.2.0"
+2. Backend endpoint POST /agent/search
+   Forward the shopper's text and the sku list to
+   {{CONTROL_PLANE}}/v1/catalog/search with the X-API-Key header.
+   Return the products it sends back.
+
+3. Backend endpoint POST /agent/offer
+   Call engine.band(cart) then engine.check(cart, discount_bps) from
+   commerce-policy. Only if check() returns approved, create the Razorpay
+   order for result["net_paise"].
+
+4. Backend endpoint POST /agent/webhook
+   Verify the Razorpay signature against the raw request body, then mark the
+   order paid. Do not trust a parsed payload.
+
+5. Frontend: attach to the existing search input. Queries of four words or
+   more open the agent panel; shorter ones fall through to the site's own
+   search unchanged.
+
+=== RULES ===
+
+Do not write margin, discount or price-floor logic. commerce-policy already
+does it, and a second implementation will disagree with the first.
+
+Do not send cost or customer data to the control plane. It never needs them.
+
+If the control plane is slow or unreachable, remove the panel and let the
+site's own search handle the query. The shop must not break because we did."""
 
 
 def _out_of_scope(merchant_id, days, args):

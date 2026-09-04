@@ -188,6 +188,27 @@
     border-radius:14px;padding:1rem 1.15rem;margin:.6rem 0 0;
     font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.78rem;
     line-height:1.55;color:var(--ink-2);overflow-x:auto;white-space:pre}
+
+  /* The prompt is code the merchant will paste into an editor, so it is set
+     dark and monospaced — it should read as a terminal, not as prose. Fixed
+     colours rather than tokens: this panel looks the same in either theme,
+     the way a code block does everywhere else it appears. */
+  .lead{font-size:.93rem;color:var(--ink-2);margin:0 0 .75rem;line-height:1.6}
+  .code{background:#1E1B2E;border:1px solid #2E2A44;border-radius:14px;
+    overflow:hidden;box-shadow:0 8px 30px -14px rgba(20,22,26,.45)}
+  .codebar{display:flex;align-items:center;justify-content:space-between;
+    gap:1rem;padding:.7rem .8rem .7rem 1.1rem;border-bottom:1px solid #2E2A44}
+  .codetitle{font-size:.82rem;font-weight:600;color:#B9B3D6;
+    letter-spacing:-.01em}
+  .copy{font-family:inherit;font-size:.78rem;font-weight:600;
+    padding:.35rem .85rem;border-radius:7px;border:1px solid #3A3556;
+    background:#282341;color:#D9D4F0;cursor:pointer;transition:.15s;
+    white-space:nowrap}
+  .copy:hover{background:#332C52;border-color:#4A4370}
+  .codebody{margin:0;padding:1.1rem;overflow-x:auto;white-space:pre;
+    font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.74rem;
+    line-height:1.7;color:#C6C0E4;tab-size:2}
+  .warn{margin:.6rem 0 0;font-size:.79rem;color:var(--faint);line-height:1.55}
   .bubble.said{color:var(--ink-2);padding:0 .2rem}
 
   .thinking{display:inline-flex;align-items:center;gap:.45rem;
@@ -354,15 +375,67 @@ function showPicker(){
 
 async function showPrompt(tool){
   const note = thinking("Let me get your API keys first");
-  await new Promise(r => setTimeout(r, 700));
 
-  // Keys are minted server-side, per store. Nothing is generated in the page,
-  // and nothing can be generated at all until there is a store to mint against.
-  note.outerHTML = `<div class="bubble them"><div class="note">
-    <b>${esc(tool)}</b> — the prompt carries your keys, so it needs a store to
-    issue them against: a product list, and the discount cap you will allow.
-    <br><br>That setup step is next to build.
-  </div></div>`;
+  try {
+    // with_key mints a fresh browse key and writes it into the prompt. The
+    // key is generated server-side and shown once; nothing is generated in
+    // this page, and the old key stops working the moment this returns.
+    const res = await fetch("/v1/integration-prompt", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      credentials: "same-origin",
+      body: JSON.stringify({tool, with_key: true}),
+    });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.detail || `${res.status}`);
+
+    note.outerHTML =
+      `<div class="bubble them">
+         <div class="lead">Found your account. Minting a fresh key and
+           writing it into the prompt.</div>
+         ${codeCard(`${esc(tool)} integration prompt`, body.prompt)}
+         <div class="warn">${esc(body.note)}</div>
+       </div>`;
+    wireCopy();
+  } catch (err) {
+    note.outerHTML =
+      `<div class="bubble them"><div class="note">${esc(err.message)}</div></div>`;
+  }
+}
+
+function codeCard(title, text){
+  return `<div class="code">
+    <div class="codebar">
+      <span class="codetitle">${title}</span>
+      <button class="copy" type="button">Copy</button>
+    </div>
+    <pre class="codebody">${esc(text)}</pre>
+  </div>`;
+}
+
+// Copy is wired after insertion rather than with an inline handler, so the
+// prompt text never has to survive a trip through an HTML attribute.
+function wireCopy(){
+  document.querySelectorAll(".copy:not([data-wired])").forEach(b => {
+    b.dataset.wired = "1";
+    b.addEventListener("click", async () => {
+      const text = b.closest(".code").querySelector(".codebody").textContent;
+      try {
+        await navigator.clipboard.writeText(text);
+        b.textContent = "Copied";
+      } catch {
+        // Clipboard access is refused in some embedded views. Selecting the
+        // text is a worse experience than copying it, and a better one than
+        // a button that silently does nothing.
+        const range = document.createRange();
+        range.selectNodeContents(b.closest(".code").querySelector(".codebody"));
+        getSelection().removeAllRanges();
+        getSelection().addRange(range);
+        b.textContent = "Select all, then copy";
+      }
+      setTimeout(() => { b.textContent = "Copy"; }, 2500);
+    });
+  });
 }
 
 const MARK = {pass:"PASS", fail:"FAIL", not_configured:"n/a"};
