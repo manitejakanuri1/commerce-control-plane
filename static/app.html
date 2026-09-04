@@ -224,6 +224,22 @@
     line-height:1.7;color:#C6C0E4;tab-size:2}
   .warn{margin:.6rem 0 0;font-size:.79rem;color:var(--faint);line-height:1.55}
 
+  .conns{display:flex;flex-direction:column;gap:.55rem;margin:.9rem 0 0}
+  .conn{display:flex;align-items:center;justify-content:space-between;
+    gap:1.2rem;padding:.85rem 0;border-top:1px solid var(--rule,var(--line))}
+  .conn:first-child{border-top:0;padding-top:.2rem}
+  .conntext{min-width:0}
+  .connname{margin:0 0 .2rem;font-size:.92rem;font-weight:600;
+    letter-spacing:-.015em}
+  .connwhat{margin:0;font-size:.82rem;color:var(--muted);line-height:1.5}
+  /* Labelled rather than disabled. A connector that does something real, just
+     less than the others, should still be reachable — and saying which part
+     works is more use than a greyed-out button. */
+  .soon{font-size:.68rem;font-weight:500;color:var(--faint);
+    border:1px solid var(--btn-line);border-radius:5px;padding:.1rem .35rem;
+    vertical-align:middle;letter-spacing:0}
+  .conn .tool{flex:none}
+
   .wa{margin:.9rem 0 0}
   .wabody{background:var(--white);border:1px solid var(--line);
     border-radius:14px;padding:1.1rem;text-align:center}
@@ -676,9 +692,64 @@ function setMode(next){
 $("nav-search").addEventListener("click", () => { setMode("search"); $("q").focus(); });
 $("nav-integration").addEventListener("click", () => {
   setMode("integration");
-  ask("integrate this with my website");
+  say("me", "Show me what I can connect");
+  showConnections();
 });
 setMode("search");
+
+// What a merchant can plug in, with each one's real state rather than a row
+// of buttons that all look equally ready. A connector shown as available and
+// then found to be unbuilt costs more trust than one labelled honestly.
+const CONNECTIONS = [
+  {id:"website", name:"Your website", ready:true,
+   what:"Agentic search and checkout. Pick your coding tool and paste a prompt.",
+   action:"Get the prompt"},
+  {id:"whatsapp", name:"WhatsApp", ready:true,
+   what:"Receipts and offers, sent from your own number.",
+   action:"Connect"},
+  {id:"facebook", name:"Meta Ads", ready:false,
+   what:"Facebook and Instagram campaigns. The engine already knows your margin and your stock, so it can stop ads for what you cannot sell.",
+   action:"Authorise",
+   href:"https://onboard.windsor.ai/connect?connector=facebook&client=CLAUDE&next=/facebook/authorize"},
+  {id:"google_ads", name:"Google Ads", ready:false,
+   what:"Search campaigns, budgets and bids, judged against real margin rather than clicks.",
+   action:"Authorise",
+   href:"https://onboard.windsor.ai/connect?connector=google_ads&client=CLAUDE&next=/google_ads/authorize"},
+];
+
+function showConnections(){
+  const el = say("them", `<div class="picker">
+    <h3>What would you like to connect?</h3>
+    <div class="conns">${CONNECTIONS.map(c => `
+      <div class="conn">
+        <div class="conntext">
+          <p class="connname">${esc(c.name)}${
+            c.ready ? "" : ` <span class="soon">read-only</span>`}</p>
+          <p class="connwhat">${esc(c.what)}</p>
+        </div>
+        <button class="tool" data-conn="${c.id}">${esc(c.action)}</button>
+      </div>`).join("")}</div>
+  </div>`);
+
+  el.querySelectorAll("[data-conn]").forEach(b =>
+    b.addEventListener("click", () => {
+      const conn = CONNECTIONS.find(c => c.id === b.dataset.conn);
+      say("me", `${conn.action} — ${conn.name}`);
+
+      if (conn.id === "website") { showPicker(); return; }
+      if (conn.id === "whatsapp") { showWhatsApp(); return; }
+
+      // Ad accounts are authorised at the provider, so this leaves the page.
+      // Opened rather than navigated, so the merchant does not lose the
+      // prompt they were partway through.
+      window.open(conn.href, "_blank", "noopener");
+      say("them", `<div class="note">A window opened to authorise
+        <b>${esc(conn.name)}</b>. Sign in there and grant access to the ad
+        account you want read.<br><br>Reading campaign spend against your real
+        margin works once that is done. Changing budgets automatically is not
+        built yet — it is the next thing.</div>`);
+    }));
+}
 </script>
 </body>
 </html>
