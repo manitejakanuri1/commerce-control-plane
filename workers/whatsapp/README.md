@@ -39,7 +39,7 @@ nano .env          # paste your FULL merchant key
 Then run it once in the foreground and scan the QR:
 
 ```bash
-node index.js
+node --env-file=.env index.js
 ```
 
 A QR code prints. On the shop's phone: **WhatsApp → Settings → Linked

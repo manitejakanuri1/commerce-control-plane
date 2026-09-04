@@ -8,7 +8,7 @@ Type=simple
 User=ubuntu
 WorkingDirectory=/home/ubuntu/commerce-whatsapp
 EnvironmentFile=/home/ubuntu/commerce-whatsapp/.env
-ExecStart=/usr/bin/node index.js
+ExecStart=/usr/bin/node --env-file=.env index.js
 
 # Chromium is heavy and a box that runs out of memory kills it silently, so
 # restart on any exit rather than only on failure.

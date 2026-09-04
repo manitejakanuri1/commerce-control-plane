@@ -40,6 +40,12 @@ const DEFAULT_COUNTRY_CODE = process.env.COUNTRY_CODE || '91';
 if (!API_KEY) {
   console.error('COMMERCE_API_KEY is not set. This worker reads a queue that '
     + 'carries payer contact details, so it will not start without one.');
+  // Node does not read a .env file on its own, and a worker started without
+  // the flag fails here with a message about a missing key rather than about
+  // the file sitting right next to it — which sends you looking in the wrong
+  // place. Say both.
+  console.error('\nIf you have a .env file here, start it with:');
+  console.error('  node --env-file=.env index.js');
   process.exit(1);
 }
 
