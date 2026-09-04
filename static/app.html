@@ -209,6 +209,17 @@
     font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.74rem;
     line-height:1.7;color:#C6C0E4;tab-size:2}
   .warn{margin:.6rem 0 0;font-size:.79rem;color:var(--faint);line-height:1.55}
+
+  .wa{margin:.9rem 0 0}
+  .wabody{background:var(--white);border:1px solid var(--line);
+    border-radius:14px;padding:1.1rem;text-align:center}
+  /* White plate behind the code: a QR on a tinted background is read less
+     reliably, and a merchant blames their phone before they blame the page. */
+  .qr{width:210px;height:210px;display:block;margin:0 auto .7rem;
+    background:#fff;border-radius:10px;padding:8px;image-rendering:pixelated}
+  .wabody .sm{font-size:.79rem;color:var(--muted);line-height:1.55}
+  .waok{font-size:.92rem;font-weight:600;color:var(--allow);line-height:1.6}
+  .waok .sm{font-weight:400;color:var(--muted)}
   .bubble.said{color:var(--ink-2);padding:0 .2rem}
 
   .thinking{display:inline-flex;align-items:center;gap:.45rem;
@@ -410,10 +421,69 @@ async function showPrompt(tool){
          <div class="warn">${esc(body.note)}</div>
        </div>`;
     wireCopy();
+    showWhatsApp();
   } catch (err) {
     note.outerHTML =
       `<div class="bubble them"><div class="note">${esc(err.message)}</div></div>`;
   }
+}
+
+// The delivery worker holds the WhatsApp session on a machine this page
+// cannot reach, and reports its QR code to the control plane. A WhatsApp code
+// lasts about twenty seconds, so this polls: whatever is on screen is the one
+// that currently works.
+let waPoll = null;
+
+function showWhatsApp(){
+  const el = say("them", `<div class="wa" id="wa">
+    <div class="lead">One more step — connect WhatsApp so receipts reach
+      your customers.</div>
+    <div class="wabody"><div class="note">Checking your delivery worker…</div></div>
+  </div>`);
+
+  const body = el.querySelector(".wabody");
+  clearInterval(waPoll);
+
+  const draw = async () => {
+    let d;
+    try {
+      const res = await fetch("/v1/whatsapp/status", {credentials:"same-origin"});
+      d = await res.json();
+      if (!res.ok) throw new Error(d.detail || res.status);
+    } catch (err) {
+      body.innerHTML = `<div class="note">${esc(String(err.message))}</div>`;
+      return;
+    }
+
+    if (d.status === "connected"){
+      clearInterval(waPoll);
+      body.innerHTML = `<div class="waok">WhatsApp connected${
+        d.number ? ` — ${esc(d.number)}` : ""}<br>
+        <span class="sm">${esc(d.message)}</span></div>`;
+      return;
+    }
+
+    if (d.qr){
+      // The image is a data URI the worker produced. Rendered as a src rather
+      // than injected as markup, so a malformed value fails to load instead of
+      // becoming something the page executes.
+      const img = document.createElement("img");
+      img.className = "qr";
+      img.alt = "WhatsApp QR code";
+      img.src = d.qr;
+      body.replaceChildren(img);
+      const hint = document.createElement("div");
+      hint.className = "sm";
+      hint.textContent = d.message + " Refreshes automatically.";
+      body.appendChild(hint);
+      return;
+    }
+
+    body.innerHTML = `<div class="note">${esc(d.message || "Waiting…")}</div>`;
+  };
+
+  draw();
+  waPoll = setInterval(draw, 4000);
 }
 
 function codeCard(title, text){

@@ -141,13 +141,39 @@ async function tick(client) {
     + `unsendable ${counts.unsendable}`);
 }
 
+/**
+ * Tell the control plane where this worker has got to.
+ *
+ * The merchant sees the QR on the page they are already on rather than being
+ * sent to a terminal they have no access to, which is the difference between
+ * a step they complete and a step they abandon.
+ *
+ * Reporting failures are logged and swallowed. A worker that stopped
+ * delivering receipts because it could not report its own status would be
+ * failing at its actual job to succeed at describing it.
+ */
+async function report(state) {
+  try {
+    await api('/v1/whatsapp/state', {
+      method: 'POST',
+      body: JSON.stringify({ ...state, version: '1.0.0' }),
+    });
+  } catch (error) {
+    console.error('could not report state:', String(error).slice(0, 120));
+  }
+}
+
 async function main() {
   console.log(`control plane: ${CONTROL_PLANE}`);
   console.log(`session: ${SESSION}, polling every ${POLL_SECONDS}s`);
 
-  ev.on('qr.**', () => {
-    console.log('\nScan the QR above with the shop\'s WhatsApp:');
+  // A WhatsApp QR lasts about twenty seconds and a fresh one replaces it.
+  // Every one is forwarded, so whatever the merchant is looking at is the
+  // one currently valid.
+  ev.on('qr.**', (qr) => {
+    console.log('\nQR code sent to the setup page. Scan it there, or above:');
     console.log('  WhatsApp -> Settings -> Linked devices -> Link a device\n');
+    report({ status: 'waiting', qr });
   });
 
   const client = await create({
@@ -166,6 +192,9 @@ async function main() {
 
   console.log('whatsapp connected\n');
 
+  const number = await client.getHostNumber().catch(() => null);
+  await report({ status: 'connected', connected_number: number });
+
   let stopping = false;
   for (const signal of ['SIGINT', 'SIGTERM']) {
     process.on(signal, () => {
@@ -174,9 +203,22 @@ async function main() {
     });
   }
 
+  // Re-reported every round. A merchant refreshing the setup page an hour
+  // later should see whether the link is still alive, not a stale "connected"
+  // from whenever it last started.
+  let sinceReport = 0;
+
   while (!stopping) {
     try {
       await tick(client);
+      sinceReport += POLL_SECONDS;
+      if (sinceReport >= 30) {
+        const live = await client.isConnected().catch(() => false);
+        await report(live
+          ? { status: 'connected', connected_number: number }
+          : { status: 'waiting' });
+        sinceReport = 0;
+      }
     } catch (error) {
       // The control plane being down is not this process's problem to solve.
       // Log it, wait, ask again.
@@ -185,6 +227,7 @@ async function main() {
     for (let i = 0; i < POLL_SECONDS && !stopping; i += 1) await sleep(1000);
   }
 
+  await report({ status: 'stopped' });
   await client.kill();
   process.exit(0);
 }

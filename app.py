@@ -233,6 +233,15 @@ class MessageFailure(BaseModel):
     error: str = Field("", max_length=300)
 
 
+class WhatsAppState(BaseModel):
+    status: str = Field(..., pattern="^(waiting|connected|stopped)$")
+    # Base64 PNG. Generous but bounded — a QR image is a few kilobytes and
+    # this field arrives from a process on somebody else's machine.
+    qr: str | None = Field(None, max_length=200_000)
+    connected_number: str | None = Field(None, max_length=32)
+    version: str | None = Field(None, max_length=32)
+
+
 class PolicyLogRecord(BaseModel):
     """One decision, as reported by a merchant's own policy engine.
 
@@ -566,6 +575,79 @@ def message_failed(message_id: str, body: MessageFailure,
     if not messages.mark_failed(merchant_id, message_id, body.error):
         raise HTTPException(404, "no such message")
     return {"status": "recorded"}
+
+
+# --------------------------------------------------------------------------
+# linking a merchant's WhatsApp
+# --------------------------------------------------------------------------
+# The delivery worker holds the WhatsApp session and runs on a box this
+# service cannot reach. It reports its QR code here so the merchant can scan
+# it from the page they are already on, rather than being sent to a terminal.
+
+# A WhatsApp QR lasts about twenty seconds. Anything older is not shown at
+# all: a stale code renders as a perfectly scannable image that simply does
+# not work, and a merchant will blame their phone before they blame us.
+QR_FRESH_SECONDS = 45
+
+
+@app.post("/v1/whatsapp/state")
+def whatsapp_state(body: WhatsAppState,
+                   merchant_id: str = Depends(authenticate_full)):
+    """The worker reporting where it has got to."""
+    qr = body.qr if body.status == "waiting" else None
+    db.execute(
+        "INSERT INTO whatsapp_sessions (merchant_id, status, qr, "
+        "connected_number, worker_version, updated_at) "
+        "VALUES (%s, %s, %s, %s, %s, now()) "
+        "ON CONFLICT (merchant_id) DO UPDATE SET "
+        "status = EXCLUDED.status, qr = EXCLUDED.qr, "
+        "connected_number = COALESCE(EXCLUDED.connected_number, "
+        "                            whatsapp_sessions.connected_number), "
+        "worker_version = EXCLUDED.worker_version, updated_at = now()",
+        (merchant_id, body.status, qr, body.connected_number, body.version))
+
+    if body.status == "connected":
+        core.audit("WHATSAPP_LINKED",
+                   {"number": body.connected_number}, merchant_id=merchant_id)
+    return {"recorded": body.status}
+
+
+@app.get("/v1/whatsapp/status")
+def whatsapp_status(user: dict = Depends(current_user)):
+    """What the setup page should show right now."""
+    merchant_id = user["merchant_id"]
+    if not merchant_id:
+        raise HTTPException(409, "this account has no merchant yet")
+
+    row = db.query_one(
+        "SELECT status, qr, connected_number, updated_at, "
+        "EXTRACT(EPOCH FROM (now() - updated_at)) AS age "
+        "FROM whatsapp_sessions WHERE merchant_id = %s", (merchant_id,))
+
+    if row is None:
+        return {"status": "no_worker", "qr": None,
+                "message": "No delivery worker is reporting in. Start it on "
+                           "your server and a code will appear here."}
+
+    age = int(row["age"] or 0)
+
+    if row["status"] == "connected":
+        return {"status": "connected", "qr": None,
+                "number": row["connected_number"],
+                "message": "WhatsApp is linked. Receipts go out from this "
+                           "number."}
+
+    if age > QR_FRESH_SECONDS:
+        # The worker stopped, or lost its connection to us. Either way the
+        # code on file is dead and showing it would waste the merchant's time.
+        return {"status": "stale", "qr": None, "seconds_since_report": age,
+                "message": "The delivery worker last reported "
+                           f"{age} seconds ago. Check that it is running."}
+
+    return {"status": row["status"], "qr": row["qr"],
+            "seconds_since_report": age,
+            "message": "Open WhatsApp on the shop's phone, then Settings, "
+                       "Linked devices, Link a device."}
 
 
 @app.get("/v1/audit")
