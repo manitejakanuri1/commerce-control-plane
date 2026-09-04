@@ -177,6 +177,17 @@
     border:1px solid var(--line);border-radius:14px;padding:.7rem 1.05rem;
     box-shadow:0 1px 2px rgba(20,22,26,.05)}
   .bubble.them{align-self:flex-start;width:100%}
+
+  /* The agent's reply is assembled from database rows, not written by a
+     model, so it arrives as plain lines with its own spacing already in it.
+     pre-wrap keeps that layout without turning the text into markup. */
+  .answer{background:var(--white);border:1px solid var(--line);
+    border-radius:14px;padding:1rem 1.15rem;white-space:pre-wrap;
+    font-size:.92rem;line-height:1.6;color:var(--ink-2)}
+  .prompt{background:var(--white);border:1px solid var(--line);
+    border-radius:14px;padding:1rem 1.15rem;margin:.6rem 0 0;
+    font-family:var(--mono,ui-monospace,Consolas,monospace);font-size:.78rem;
+    line-height:1.55;color:var(--ink-2);overflow-x:auto;white-space:pre}
   .bubble.said{color:var(--ink-2);padding:0 .2rem}
 
   .thinking{display:inline-flex;align-items:center;gap:.45rem;
@@ -379,30 +390,57 @@ function render(r){
     ${body}${renderChecks(r.policy)}</div>`;
 }
 
-async function ask(text){
+// Three jobs arrive through one box.
+//
+//   integration   the tool picker, answered in the page
+//   shopper       what a customer would ask — runs the buying path
+//   merchant      everything else — the owner's own agent
+//
+// No API key appears anywhere below. Both routes authenticate with the
+// session cookie, so the merchant is known from who is signed in. An earlier
+// version put a browse key in this file, which worked and was wrong: the page
+// is served publicly, so the key was published along with it.
+async function ask(text, mode){
   say("me", esc(text));
   $("q").value = "";
 
-  // Two different jobs arrive through the same box. Integration is answered
-  // by the tool picker; anything else goes to the commerce agent.
-  if (INTEGRATION.test(text)) { showPicker(); return; }
+  if (!mode && INTEGRATION.test(text)) { showPicker(); return; }
 
+  const shopper = mode === "shopper";
   $("go").disabled = true;
-  const pending = thinking("Retrieving, proposing, checking policy");
+  const pending = thinking(shopper
+    ? "Retrieving, proposing, checking policy"
+    : "Reading your shop");
+
   try {
-    const res = await fetch("/v1/propose", {
-      method:"POST",
-      headers:{"Content-Type":"application/json",
-               "X-API-Key":"rzb_pub_ejnhFKUvrTc7etpgawunRJ2StamOi6zr"},
-      body: JSON.stringify({buyer: USER ? USER.email : "visitor", request: text}),
+    const res = await fetch(shopper ? "/v1/ask/shopper" : "/v1/ask", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      credentials: "same-origin",
+      body: JSON.stringify(shopper ? {question: text} : {question: text}),
     });
     const body = await res.json();
     if (!res.ok) throw new Error(body.detail || `${res.status}`);
-    pending.outerHTML = `<div class="bubble them">${render(body)}</div>`;
+
+    pending.outerHTML = shopper
+      ? `<div class="bubble them">${render(body)}</div>`
+      : `<div class="bubble them">${renderAnswer(body)}</div>`;
   } catch (err) {
     pending.outerHTML =
       `<div class="bubble them"><div class="note">${esc(err.message)}</div></div>`;
   } finally { $("go").disabled = false; }
+}
+
+// The agent's text is assembled from database rows, never written by a model,
+// so it arrives as plain lines. Rendered as pre-wrap rather than parsed:
+// there is no markup in it, and treating it as HTML would be an injection
+// path for whatever a shopper typed into a search box.
+function renderAnswer(body){
+  const text = `<div class="answer">${esc(body.text || "")}</div>`;
+  if (body.tool === "integration_prompt" && body.data && body.data.prompt) {
+    return text + `<pre class="prompt">${esc(body.data.prompt)}</pre>`;
+  }
+  return text;
 }
 
 $("form").addEventListener("submit", e => {
@@ -414,8 +452,10 @@ $("q").addEventListener("keydown", e => {
   if (e.key === "Enter" && !e.shiftKey){ e.preventDefault();
     $("form").dispatchEvent(new Event("submit")); }
 });
+// The sample buttons demonstrate the buying path, so they go to the shopper
+// route explicitly rather than being guessed at by the router.
 document.querySelectorAll("[data-try]").forEach(b =>
-  b.addEventListener("click", () => { $("q").value = b.dataset.try; ask(b.dataset.try); }));
+  b.addEventListener("click", () => ask(b.dataset.try, "shopper")));
 </script>
 </body>
 </html>

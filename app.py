@@ -30,6 +30,7 @@ import core
 import db
 import events
 import keys
+import merchant_agent
 import payments
 import policy_log
 import retrieval
@@ -211,6 +212,10 @@ class SignInRequest(BaseModel):
 
 class RotateKeyRequest(BaseModel):
     scope: str = Field(..., pattern="^(full|browse)$")
+
+
+class AskRequest(BaseModel):
+    question: str = Field(..., min_length=1, max_length=1000)
 
 
 class PolicyLogRecord(BaseModel):
@@ -437,6 +442,35 @@ def unmet_demand(days: int = 30, limit: int = 20,
 def events_summary(days: int = 7,
                    merchant_id: str = Depends(authenticate)):
     return events.summary(merchant_id, days)
+
+
+# --------------------------------------------------------------------------
+# the merchant's own agent
+# --------------------------------------------------------------------------
+# Session-authenticated. merchant_id is taken from who is signed in and never
+# from the question, which is what makes "show me another shop's sales"
+# unanswerable rather than merely refused — no tool accepts a shop name.
+
+@app.post("/v1/ask")
+def ask(body: AskRequest, user: dict = Depends(current_user)):
+    if not user["merchant_id"]:
+        raise HTTPException(409, "this account has no merchant yet")
+    return merchant_agent.ask(user["merchant_id"], body.question)
+
+
+@app.post("/v1/ask/shopper")
+def ask_as_shopper(body: AskRequest, user: dict = Depends(current_user)):
+    """Run a shopper's request against the signed-in merchant's own catalog.
+
+    Exists so the command centre can demonstrate the buying path without an
+    API key in the page. An earlier version embedded a browse key in the HTML,
+    which worked and was wrong: the page is served publicly, so the key was
+    published with it, and every visitor shared one merchant's quota.
+    """
+    if not user["merchant_id"]:
+        raise HTTPException(409, "this account has no merchant yet")
+    rate_limit(user["merchant_id"])
+    return propose_offer(user["merchant_id"], user["email"], body.question)
 
 
 @app.get("/demo")
