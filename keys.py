@@ -109,6 +109,35 @@ def provision(conn, user_id, name, max_discount_bps=1000,
     }
 
 
+def provision_missing():
+    """Give a merchant to every account that signed up without one.
+
+    Accounts created before provisioning moved into sign_up have no merchant,
+    so they have no keys and every endpoint that needs one refuses them. The
+    person can sign in and nothing works, with an error that describes the
+    symptom rather than the cause.
+
+    Their keys cannot be shown here — nobody is watching — so they are minted
+    and discarded. The account can mint a browse key on demand from the
+    integration prompt, which is the same path a new machine takes.
+    """
+    orphans = db.query(
+        "SELECT id, name, website_name FROM users "
+        "WHERE merchant_id IS NULL AND active ORDER BY created_at")
+
+    fixed = []
+    for user in orphans:
+        shop = (user["website_name"] or "").strip() or f"{user['name']}'s shop"
+        with db.transaction() as conn:
+            issued = provision(conn, user["id"], shop)
+        fixed.append({"user_id": user["id"], "shop": shop,
+                      "merchant_id": issued["merchant_id"]})
+        log.info("backfilled merchant %s for %s",
+                 issued["merchant_id"], user["id"])
+
+    return fixed
+
+
 def rotate(merchant_id, scope):
     """Issue a new key and invalidate the old one immediately.
 

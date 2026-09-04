@@ -75,10 +75,17 @@ def _record(product):
 
 
 def sync_merchant(merchant_id, batch_size=96):
-    """Push a merchant's active catalog into its namespace.
+    """Make the index match the catalog — additions and removals both.
 
-    Called after catalog imports and by the nightly reindex. Safe to re-run;
-    upsert is keyed on sku.
+    Upsert alone is not a sync. This only ever added, so a product that left
+    the catalog stayed searchable forever: the index drifted to 31 vectors
+    against 5 real products, and a shopper could be shown something that no
+    longer existed and be sent to a checkout that would fail.
+
+    Removals run after the upserts, so at no point is a live product missing
+    from the index. A delete that fails is logged rather than raised — a stale
+    vector is a bad search result, and losing the import that triggered this
+    would be worse.
     """
     target = index()
     if target is None:
@@ -96,8 +103,85 @@ def sync_merchant(merchant_id, batch_size=96):
         target.upsert_records(namespace=ns, records=batch)
         sent += len(batch)
 
-    log.info("synced %s products to pinecone namespace %s", sent, ns)
+    removed = _remove_absent(target, ns, {str(r["sku"]) for r in rows})
+    log.info("synced %s products to pinecone namespace %s (%s removed)",
+             sent, ns, removed)
     return sent
+
+
+def _remove_absent(target, ns, keep):
+    """Delete vectors whose sku is no longer in the catalog.
+
+    The id listing is paginated and the SDK has changed its shape before, so
+    both a plain iterable of ids and pages of ids are handled.
+    """
+    try:
+        stale = [vector_id for vector_id in _all_ids(target, ns)
+                 if vector_id not in keep]
+    except Exception as exc:                    # noqa: BLE001
+        log.warning("could not list vectors in %s (%s: %s); stale entries "
+                    "may remain", ns, type(exc).__name__, exc)
+        return 0
+
+    for start in range(0, len(stale), 1000):
+        try:
+            target.delete(ids=stale[start:start + 1000], namespace=ns)
+        except Exception as exc:                # noqa: BLE001
+            log.warning("pinecone delete failed in %s: %s", ns, exc)
+            return start
+    return len(stale)
+
+
+def _all_ids(target, ns):
+    for page in target.list(namespace=ns):
+        # A page is a list of ids; some SDK versions yield the ids directly.
+        if isinstance(page, str):
+            yield page
+        else:
+            yield from page
+
+
+def prune_namespaces(dry_run=True):
+    """Delete namespaces belonging to merchants that no longer exist.
+
+    A deleted merchant leaves its whole namespace behind. Nothing can read it
+    — every search is scoped to a live merchant's own namespace, so this is
+    cost and clutter rather than a correctness problem. Worth saying that
+    plainly: it looked at first like shoppers could be shown products that had
+    been removed, and they cannot.
+
+    Defaults to dry_run because the failure mode is deleting a live merchant's
+    catalog from the index over a mistaken id, which is silent until someone
+    searches.
+    """
+    target = index()
+    if target is None:
+        return {"orphans": [], "deleted": 0, "dry_run": dry_run}
+
+    live = {namespace(row["id"])
+            for row in db.query("SELECT id FROM merchants")}
+    stats = target.describe_index_stats()
+    present = (stats.get("namespaces") or {})
+
+    orphans = [
+        {"namespace": name, "vectors": info.get("vector_count", 0)}
+        for name, info in present.items()
+        if name and name not in live
+    ]
+
+    deleted = 0
+    if not dry_run:
+        for orphan in orphans:
+            try:
+                target.delete(delete_all=True, namespace=orphan["namespace"])
+                deleted += 1
+                log.info("deleted orphaned namespace %s (%s vectors)",
+                         orphan["namespace"], orphan["vectors"])
+            except Exception as exc:            # noqa: BLE001
+                log.warning("could not delete namespace %s: %s",
+                            orphan["namespace"], exc)
+
+    return {"orphans": orphans, "deleted": deleted, "dry_run": dry_run}
 
 
 def remove_product(merchant_id, sku):
