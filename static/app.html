@@ -224,21 +224,31 @@
     line-height:1.7;color:#C6C0E4;tab-size:2}
   .warn{margin:.6rem 0 0;font-size:.79rem;color:var(--faint);line-height:1.55}
 
-  .conns{display:flex;flex-direction:column;gap:.55rem;margin:.9rem 0 0}
-  .conn{display:flex;align-items:center;justify-content:space-between;
-    gap:1.2rem;padding:.85rem 0;border-top:1px solid var(--rule,var(--line))}
-  .conn:first-child{border-top:0;padding-top:.2rem}
-  .conntext{min-width:0}
-  .connname{margin:0 0 .2rem;font-size:.92rem;font-weight:600;
-    letter-spacing:-.015em}
-  .connwhat{margin:0;font-size:.82rem;color:var(--muted);line-height:1.5}
+  /* Four squares rather than a list. A connector picker is scanned by logo
+     before it is read, and equal tiles say the four are alternatives to each
+     other in a way stacked rows do not. */
+  .conns{display:grid;grid-template-columns:repeat(4,1fr);gap:.65rem;
+    margin:1rem 0 0}
+  @media (max-width:640px){.conns{grid-template-columns:repeat(2,1fr)}}
+
+  .conn{position:relative;aspect-ratio:1;display:flex;flex-direction:column;
+    align-items:center;justify-content:center;gap:.5rem;text-align:center;
+    padding:.9rem .7rem;font-family:inherit;cursor:pointer;
+    background:var(--white);border:1px solid var(--btn-line);
+    border-radius:14px;transition:.18s cubic-bezier(.16,1,.3,1)}
+  .conn:hover{transform:translateY(-2px);border-color:var(--faint);
+    box-shadow:0 8px 24px -14px rgba(20,22,26,.35)}
+  .conn svg{width:34px;height:34px;flex:none}
+  .connname{margin:0;font-size:.85rem;font-weight:600;color:var(--ink);
+    letter-spacing:-.015em;line-height:1.25}
+  .connwhat{margin:0;font-size:.72rem;color:var(--muted);line-height:1.4}
+
   /* Labelled rather than disabled. A connector that does something real, just
      less than the others, should still be reachable — and saying which part
      works is more use than a greyed-out button. */
-  .soon{font-size:.68rem;font-weight:500;color:var(--faint);
-    border:1px solid var(--btn-line);border-radius:5px;padding:.1rem .35rem;
-    vertical-align:middle;letter-spacing:0}
-  .conn .tool{flex:none}
+  .soon{position:absolute;top:.55rem;right:.55rem;font-size:.62rem;
+    font-weight:500;color:var(--faint);border:1px solid var(--btn-line);
+    border-radius:5px;padding:.08rem .3rem;letter-spacing:0}
 
   .wa{margin:.9rem 0 0}
   .wabody{background:var(--white);border:1px solid var(--line);
@@ -700,19 +710,53 @@ setMode("search");
 // What a merchant can plug in, with each one's real state rather than a row
 // of buttons that all look equally ready. A connector shown as available and
 // then found to be unbuilt costs more trust than one labelled honestly.
+// Drawn inline rather than loaded from the providers. A logo fetched from
+// someone else's server is a request that can be slow, blocked, or logged, and
+// a picker whose tiles arrive one at a time reads as broken.
+const LOGOS = {
+  website: `<svg viewBox="0 0 24 24" fill="none" stroke="#3D6FF5"
+    stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9.2"/><path d="M2.8 12h18.4"/>
+    <path d="M12 2.8a15 15 0 0 1 0 18.4a15 15 0 0 1 0-18.4"/></svg>`,
+
+  whatsapp: `<svg viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="#25D366" d="M12 2a9.9 9.9 0 0 0-8.5 15L2 22l5.2-1.4A9.9 9.9 0
+      1 0 12 2Zm0 18a8.1 8.1 0 0 1-4.1-1.1l-.3-.2l-3 .8l.8-2.9l-.2-.3A8.1 8.1
+      0 1 1 12 20Z"/>
+    <path fill="#25D366" d="M16.6 14.2c-.2-.1-1.5-.7-1.7-.8s-.4-.1-.6.1s-.6.8-.8
+      1s-.3.2-.5.1a6.6 6.6 0 0 1-3.3-2.9c-.2-.4.2-.4.6-1.2c.1-.1 0-.3 0-.4
+      s-.6-1.4-.8-1.9s-.4-.4-.6-.4h-.5a1 1 0 0 0-.7.3A2.9 2.9 0 0 0 6.8 10
+      a5.1 5.1 0 0 0 1.1 2.7a11.6 11.6 0 0 0 4.4 3.9c1.6.7 2.3.7 3.1.6
+      a2.6 2.6 0 0 0 1.7-1.2a2.1 2.1 0 0 0 .1-1.2Z"/></svg>`,
+
+  facebook: `<svg viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="#0866FF" d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06
+      c0 5 3.66 9.15 8.44 9.94v-7H7.9v-2.9h2.54V9.85c0-2.52 1.5-3.91
+      3.77-3.91c1.1 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63
+      1.57v1.89h2.78l-.45 2.9h-2.33v7A10 10 0 0 0 22 12.06Z"/></svg>`,
+
+  google_ads: `<svg viewBox="0 0 24 24" aria-hidden="true">
+    <path fill="#4285F4" d="M21.6 12.23c0-.7-.06-1.37-.18-2H12v3.79h5.38
+      a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.89-1.74 2.98-4.3 2.98-7.31Z"/>
+    <path fill="#34A853" d="M12 22c2.7 0 4.96-.9 6.61-2.43l-3.23-2.5
+      c-.9.6-2.05.95-3.38.95c-2.6 0-4.8-1.75-5.59-4.1H3.07v2.58A10 10 0 0 0 12
+      22Z"/>
+    <path fill="#FBBC05" d="M6.41 13.92a6 6 0 0 1 0-3.83V7.5H3.07a10 10 0 0 0
+      0 9l3.34-2.58Z"/>
+    <path fill="#EA4335" d="M12 5.98c1.47 0 2.79.51 3.83 1.5l2.86-2.86
+      C16.95 2.99 14.7 2 12 2A10 10 0 0 0 3.07 7.5l3.34 2.59C7.2 7.73 9.4 5.98
+      12 5.98Z"/></svg>`,
+};
+
 const CONNECTIONS = [
-  {id:"website", name:"Your website", ready:true,
-   what:"Agentic search and checkout. Pick your coding tool and paste a prompt.",
+  {id:"website", name:"Your website", ready:true, what:"Agentic search",
    action:"Get the prompt"},
-  {id:"whatsapp", name:"WhatsApp", ready:true,
-   what:"Receipts and offers, sent from your own number.",
+  {id:"whatsapp", name:"WhatsApp", ready:true, what:"Receipts and offers",
    action:"Connect"},
-  {id:"facebook", name:"Meta Ads", ready:false,
-   what:"Facebook and Instagram campaigns. The engine already knows your margin and your stock, so it can stop ads for what you cannot sell.",
+  {id:"facebook", name:"Meta Ads", ready:false, what:"Facebook, Instagram",
    action:"Authorise",
    href:"https://onboard.windsor.ai/connect?connector=facebook&client=CLAUDE&next=/facebook/authorize"},
-  {id:"google_ads", name:"Google Ads", ready:false,
-   what:"Search campaigns, budgets and bids, judged against real margin rather than clicks.",
+  {id:"google_ads", name:"Google Ads", ready:false, what:"Search campaigns",
    action:"Authorise",
    href:"https://onboard.windsor.ai/connect?connector=google_ads&client=CLAUDE&next=/google_ads/authorize"},
 ];
@@ -721,14 +765,12 @@ function showConnections(){
   const el = say("them", `<div class="picker">
     <h3>What would you like to connect?</h3>
     <div class="conns">${CONNECTIONS.map(c => `
-      <div class="conn">
-        <div class="conntext">
-          <p class="connname">${esc(c.name)}${
-            c.ready ? "" : ` <span class="soon">read-only</span>`}</p>
-          <p class="connwhat">${esc(c.what)}</p>
-        </div>
-        <button class="tool" data-conn="${c.id}">${esc(c.action)}</button>
-      </div>`).join("")}</div>
+      <button class="conn" data-conn="${c.id}">
+        ${c.ready ? "" : `<span class="soon">read-only</span>`}
+        ${LOGOS[c.id]}
+        <p class="connname">${esc(c.name)}</p>
+        <p class="connwhat">${esc(c.what)}</p>
+      </button>`).join("")}</div>
   </div>`);
 
   el.querySelectorAll("[data-conn]").forEach(b =>
