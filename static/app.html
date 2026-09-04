@@ -38,11 +38,25 @@
 
   /* Signed-in strip. Sits on the wash rather than on a white bar, so the
      page reads as one surface the way the reference does. */
-  .top{display:flex;align-items:center;justify-content:flex-end;gap:1rem;
+  .top{display:flex;align-items:center;justify-content:space-between;gap:1rem;
     max-width:58rem;margin:0 auto 1.6rem;font-size:.83rem;color:var(--muted)}
   .top button{font-family:inherit;font-size:.83rem;color:var(--muted);
     background:none;border:0;cursor:pointer;padding:0}
   .top button:hover{color:var(--ink)}
+  .right{display:flex;align-items:center;gap:1rem}
+
+  /* Two things a merchant does here, named. Without them the prompt box has
+     to carry every job at once, and a shopper request and an integration
+     request look identical to somebody seeing this for the first time. */
+  .nav{display:flex;align-items:center;gap:.35rem}
+  .nav button{display:inline-flex;align-items:center;gap:.4rem;
+    font-family:inherit;font-size:.84rem;font-weight:500;color:var(--muted);
+    background:none;border:0;border-radius:8px;padding:.42rem .7rem;
+    cursor:pointer;transition:.15s;white-space:nowrap}
+  .nav button:hover{background:var(--white);color:var(--ink)}
+  .nav button[aria-current="true"]{background:var(--white);color:var(--ink);
+    font-weight:600;box-shadow:0 1px 2px rgba(20,22,26,.07)}
+  .nav svg{width:15px;height:15px;flex:none}
 
   .inner{max-width:58rem;margin:0 auto}
 
@@ -245,8 +259,25 @@
 <body>
 
 <div class="top">
-  <span id="whoami"></span>
-  <button id="signout">Sign out</button>
+  <nav class="nav" aria-label="Sections">
+    <button id="nav-search" aria-current="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+      Search</button>
+    <button id="nav-integration" aria-current="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        aria-hidden="true">
+        <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/>
+        <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+      Integration</button>
+  </nav>
+
+  <div class="right">
+    <span id="whoami"></span>
+    <button id="signout">Sign out</button>
+  </div>
 </div>
 
 <div class="inner">
@@ -625,6 +656,29 @@ $("later").addEventListener("click", () => {
   document.querySelector(".cards").hidden = true;
   $("q").focus();
 });
+
+// Two jobs happen in one box, and which one is running was previously only
+// inferable from what you typed. Naming them puts a shopper request and an
+// integration request in different places, which is also how the shopper path
+// comes back: it lost its button when that one became "I'll do it later".
+let mode = "search";
+
+function setMode(next){
+  mode = next;
+  $("nav-search").setAttribute("aria-current", String(next === "search"));
+  $("nav-integration").setAttribute("aria-current",
+    String(next === "integration"));
+  $("q").placeholder = next === "integration"
+    ? "Ask about connecting your store, or say \"integrate with my website\"…"
+    : "Ask for anything — shop the way a customer would…";
+}
+
+$("nav-search").addEventListener("click", () => { setMode("search"); $("q").focus(); });
+$("nav-integration").addEventListener("click", () => {
+  setMode("integration");
+  ask("integrate this with my website");
+});
+setMode("search");
 </script>
 </body>
 </html>
