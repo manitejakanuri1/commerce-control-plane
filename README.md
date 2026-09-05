@@ -1,4 +1,14 @@
-# Merchant Agent Commerce Control Plane
+# Commerce Control Plane
+
+### The model proposes. The code decides.
+
+![status](https://img.shields.io/badge/status-live-2F6B4F)
+![tests](https://img.shields.io/badge/tests-212%20passing-2F6B4F)
+![python](https://img.shields.io/badge/Python-3.13-3D6FF5)
+![fastapi](https://img.shields.io/badge/FastAPI-0.115-3D6FF5)
+![postgres](https://img.shields.io/badge/PostgreSQL-Supabase-3D6FF5)
+![razorpay](https://img.shields.io/badge/Payments-Razorpay-3D6FF5)
+![licence](https://img.shields.io/badge/licence-MIT-6B6B63)
 
 Razorpay moves the money. This service decides how a merchant safely sells.
 
@@ -7,9 +17,23 @@ merchant's economics, and it cannot cause a customer to be charged twice.
 
 Built for the Razorpay AI Buildathon, Track 01 — AI Growth & Agentic Commerce.
 
-- Live: **commerce-control-plane-api.vercel.app**
-- 212 tests
-- 12 migrations
+**Live:** commerce-control-plane-api.vercel.app
+
+---
+
+## Stack
+
+| Layer | Choice | Why this one |
+|---|---|---|
+| API | FastAPI · Python 3.13 | the money path is ordinary synchronous code; nothing here needs to be clever |
+| Database | PostgreSQL (Supabase) | `SELECT … FOR UPDATE`. SQLite serialises writes but gives no row lock, so the inventory race could not be tested honestly |
+| Payments | Razorpay | orders, webhooks, and the reconciliation path when a webhook never arrives |
+| Retrieval | Pinecone, integrated embeddings | per-merchant namespaces are the tenant boundary; falls back to Postgres full-text |
+| Model | DeepSeek (`deepseek-chat`) | proposes and routes only. Never sees a cost, never decides a price |
+| Messaging | WhatsApp Cloud API | one HTTPS call per message. No browser, no session, no ban risk |
+| Ads | Windsor.ai | already holds Meta's app review and Google's developer token — the two approvals that otherwise take weeks |
+| Merchant engine | `commerce-policy`, published as a package | runs on their server so cost never crosses the network |
+| Hosting | Vercel (serverless) | which is why nothing in the design may hold a long-lived session |
 
 ---
 
@@ -418,3 +442,9 @@ provable offline in under a second.
 still true rather than reconstructed afterwards. Fifteen write-ups, including
 the one where the entire architecture turned out to be bypassable from a public
 URL — not through the code, around it.
+
+---
+
+## Licence
+
+MIT. See `LICENSE`.
