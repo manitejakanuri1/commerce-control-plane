@@ -297,6 +297,10 @@
     background:linear-gradient(180deg,rgba(237,241,249,0),#EDF1F9 38%);
     z-index:5}
   body.chatting .box{margin:0 auto}
+  /* The docked composer covers the bottom of the page, so the thread has to
+     end above it — otherwise the newest bubble, which is the one worth
+     reading, sits underneath it. */
+  body.chatting .thread{padding-bottom:calc(var(--composer-h, 11rem) + 1.5rem)}
 
   :focus-visible{outline:2px solid var(--blue);outline-offset:3px;
     border-radius:6px}
@@ -433,6 +437,17 @@ const TOOLS = {
 function startChat(){
   document.body.classList.add("chatting");
 }
+
+// The composer grows with the textarea, so its height is measured rather than
+// guessed, and re-measured whenever it changes.
+const composerEl = document.querySelector(".composer");
+function measureComposer(){
+  document.documentElement.style.setProperty(
+    "--composer-h", `${composerEl.offsetHeight}px`);
+}
+measureComposer();
+new ResizeObserver(measureComposer).observe(composerEl);
+window.addEventListener("resize", measureComposer);
 
 function say(who, html){
   startChat();
