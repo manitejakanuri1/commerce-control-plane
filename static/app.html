@@ -310,6 +310,13 @@
 
 <div class="top">
   <nav class="nav" aria-label="Sections">
+    <button id="nav-home" aria-current="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        aria-hidden="true">
+        <path d="M3.5 10.5 12 3.5l8.5 7"/>
+        <path d="M5.5 9.6V20h13V9.6"/><path d="M9.75 20v-5.5h4.5V20"/></svg>
+      Home</button>
     <button id="nav-search" aria-current="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
         stroke-width="2" stroke-linecap="round" aria-hidden="true">
@@ -782,6 +789,9 @@ function setMode(next){
     ? "Ask about connecting your store, or say \"integrate with my website\"…"
     : "Ask for anything — shop the way a customer would…";
 }
+
+// Home is a way out of a long thread: the page as it was on arrival.
+$("nav-home").addEventListener("click", () => { location.href = "/app"; });
 
 $("nav-search").addEventListener("click", () => { setMode("search"); $("q").focus(); });
 $("nav-integration").addEventListener("click", () => {
