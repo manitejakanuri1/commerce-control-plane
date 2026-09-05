@@ -269,14 +269,27 @@
   .waok .sm{font-weight:400;color:var(--muted)}
   .bubble.said{color:var(--ink-2);padding:0 .2rem}
 
-  .thinking{display:inline-flex;align-items:center;gap:.45rem;
-    font-size:.88rem;color:var(--muted);padding:.2rem}
-  .thinking i{width:5px;height:5px;border-radius:50%;background:var(--muted);
-    display:inline-block;animation:pulse 1.2s ease-in-out infinite}
-  .thinking i:nth-child(2){animation-delay:.15s}
-  .thinking i:nth-child(3){animation-delay:.3s}
-  @keyframes pulse{0%,80%,100%{opacity:.25}40%{opacity:1}}
-  @media (prefers-reduced-motion:reduce){.thinking i{animation:none;opacity:.6}}
+  /* A wavefront crosses a 3x3 grid. The cycle is shorter than the sweep,
+     so two fronts are in flight and the wait never looks stalled. */
+  .thinking{display:inline-flex;align-items:center;gap:.6rem;padding:.2rem}
+  .thinking .grid{display:grid;grid-template-columns:repeat(3,4px);gap:1.5px}
+  .thinking .grid i{width:4px;height:4px;border-radius:1px;
+    background:var(--blue);opacity:.15;
+    animation:pixel-on 650ms ease-in-out infinite}
+  .thinking .lbl{font-size:.82rem;font-weight:500;color:transparent;
+    background-clip:text;-webkit-background-clip:text;
+    background-image:linear-gradient(90deg,
+      var(--blue-soft) 35%, var(--blue) 50%, var(--blue-soft) 65%);
+    background-size:200% 100%;animation:shimmer-text 1.4s linear infinite}
+  .thinking .el{font-family:var(--mono);font-size:.74rem;color:var(--faint);
+    font-variant-numeric:tabular-nums}
+  @keyframes pixel-on{0%,100%{opacity:.12}50%{opacity:1}}
+  @keyframes shimmer-text{0%{background-position:200% 0}
+    100%{background-position:-200% 0}}
+  @media (prefers-reduced-motion:reduce){
+    .thinking .grid i{animation:none;opacity:.45}
+    .thinking .lbl{animation:none;color:var(--blue);
+      background-image:none;-webkit-text-fill-color:var(--blue)}}
 
   /* The composer docks to the bottom once a thread exists. */
   body.chatting .composer{position:fixed;left:0;right:0;bottom:0;
@@ -431,10 +444,30 @@ function say(who, html){
   return el;
 }
 
+// The wavefront: a cell's delay is its distance from the left-middle, so the
+// front enters at the middle-left and fans out to the right.
+const PIXEL_DELAYS = Array.from({length: 9}, (_, i) =>
+  ((i % 3) + Math.abs(Math.floor(i / 3) - 1)) * 90);
+
 function thinking(label){
-  return say("them", `<span class="thinking">${esc(label)}
-    <i></i><i></i><i></i></span>`);
+  const cells = PIXEL_DELAYS.map(d =>
+    `<i style="animation-delay:${d}ms"></i>`).join("");
+  return say("them", `<span class="thinking">
+    <span class="grid" aria-hidden="true">${cells}</span>
+    <span class="lbl">${esc(label)}</span>
+    <span class="el" data-since="${Date.now()}">0.0s</span></span>`);
 }
+
+// One ticker for every waiting bubble on the page. Nodes that get replaced
+// simply stop being found, so there is nothing to clean up.
+setInterval(() => {
+  document.querySelectorAll(".thinking .el[data-since]").forEach(el => {
+    const s = (Date.now() - Number(el.dataset.since)) / 1000;
+    el.textContent = s < 60
+      ? `${s.toFixed(1)}s`
+      : `${Math.floor(s / 60)}m ${(s % 60).toFixed(1)}s`;
+  });
+}, 100);
 
 function showPicker(){
   const el = say("them", `<div class="picker">
