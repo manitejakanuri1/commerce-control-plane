@@ -305,6 +305,12 @@
         <path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/>
         <path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
       Integration</button>
+    <button id="nav-activity" aria-current="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+        aria-hidden="true">
+        <path d="M3 12h4l2.5-6 4 12L16 12h5"/></svg>
+      Activity</button>
   </nav>
 
   <div class="right">
@@ -723,6 +729,7 @@ function setMode(next){
   $("nav-search").setAttribute("aria-current", String(next === "search"));
   $("nav-integration").setAttribute("aria-current",
     String(next === "integration"));
+  $("nav-activity").setAttribute("aria-current", String(next === "activity"));
   $("q").placeholder = next === "integration"
     ? "Ask about connecting your store, or say \"integrate with my website\"…"
     : "Ask for anything — shop the way a customer would…";
@@ -733,6 +740,12 @@ $("nav-integration").addEventListener("click", () => {
   setMode("integration");
   say("me", "Show me what I can connect");
   showConnections();
+});
+// The panel behind this is not built yet, so the button says so rather than
+// opening an empty one.
+$("nav-activity").addEventListener("click", () => {
+  setMode("activity");
+  say("them", "Events and the audit trail are not wired into this page yet.");
 });
 setMode("search");
 
