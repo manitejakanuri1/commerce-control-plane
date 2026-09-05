@@ -43,7 +43,17 @@
   .top button{font-family:inherit;font-size:.83rem;color:var(--muted);
     background:none;border:0;cursor:pointer;padding:0}
   .top button:hover{color:var(--ink)}
-  .right{display:flex;align-items:center;gap:1rem}
+  .right{display:flex;align-items:center;gap:.7rem}
+  /* A full address is longer than the nav beside it and says nothing a
+     merchant does not already know. Initials, with the address on hover. */
+  .who{width:28px;height:28px;border-radius:50%;background:var(--blue-soft);
+    color:var(--blue-hi);font-size:.72rem;font-weight:600;letter-spacing:.02em;
+    display:inline-flex;align-items:center;justify-content:center;
+    text-transform:uppercase;user-select:none}
+  .top #signout{background:var(--blue);color:var(--white);font-weight:500;
+    padding:.34rem .8rem;border-radius:999px;
+    box-shadow:0 1px 2px rgba(61,111,245,.28)}
+  .top #signout:hover{background:var(--blue-hi);color:var(--white)}
 
   /* Two things a merchant does here, named. Without them the prompt box has
      to carry every job at once, and a shopper request and an integration
@@ -338,7 +348,7 @@
   </nav>
 
   <div class="right">
-    <span id="whoami"></span>
+    <span id="whoami" class="who"></span>
     <button id="signout">Sign out</button>
   </div>
 </div>
@@ -414,7 +424,13 @@ fetch("/v1/auth/me", {credentials:"same-origin"})
   .catch(() => { location.href = "/login"; });
 
 function paint(){
-  $("whoami").textContent = USER.email;
+  // Two letters: from the name if there is one, otherwise the address.
+  const parts = (USER.name || "").trim().split(/\s+/).filter(Boolean);
+  const initials = parts.length > 1
+    ? parts[0][0] + parts[parts.length - 1][0]
+    : (parts[0] || USER.email).slice(0, 2);
+  $("whoami").textContent = initials;
+  $("whoami").title = USER.email;
   const label = USER.website_name || USER.website_url;
   const first = esc(USER.name.split(" ")[0]);
   $("greet").innerHTML = label
@@ -806,9 +822,9 @@ $("nav-activity").addEventListener("click", () => {
   setMode("activity");
   say("them", "Events and the audit trail are not wired into this page yet.");
 });
-$("q").addEventListener("focus", () => {
+["focus", "input"].forEach(ev => $("q").addEventListener(ev, () => {
   if (mode === "home") setMode("search");
-});
+}));
 setMode("home");
 
 // What a merchant can plug in, with each one's real state rather than a row
