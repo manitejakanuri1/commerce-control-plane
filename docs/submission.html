@@ -1,0 +1,368 @@
+<title>Submission Pack</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,400;6..72,600;6..72,700&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+:root{
+  --paper:#FCFBF8;
+  --ink:#1A1A18;
+  --ink-2:#3A3A36;
+  --muted:#6B6B63;
+  --faint:#94948B;
+  --rule:#E6E3DA;
+  --mark:#B54B28;          /* the one accent, used only for timing and flags */
+  --mark-soft:#FAF0EA;
+  --ok:#2F6B4F;
+  --stop:#B03A2E;
+  --card:#FFFFFF;
+
+  --serif:Newsreader,Georgia,"Times New Roman",serif;
+  --sans:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#15150F; --ink:#F2F0E8; --ink-2:#CFCCC2; --muted:#9A978C;
+    --faint:#6E6B62; --rule:#2C2B24; --mark:#E4835C; --mark-soft:#241A14;
+    --ok:#6FC199; --stop:#E0776A; --card:#1C1C15;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#15150F; --ink:#F2F0E8; --ink-2:#CFCCC2; --muted:#9A978C;
+  --faint:#6E6B62; --rule:#2C2B24; --mark:#E4835C; --mark-soft:#241A14;
+  --ok:#6FC199; --stop:#E0776A; --card:#1C1C15;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);
+  font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased;
+  padding:3.5rem 1.5rem 6rem}
+.wrap{max-width:44rem;margin:0 auto}
+
+.kicker{font-family:var(--mono);font-size:.72rem;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--mark);margin:0 0 1rem}
+h1{font-family:var(--serif);font-weight:700;font-size:clamp(2.1rem,5vw,3rem);
+  line-height:1.08;letter-spacing:-.02em;margin:0 0 .7rem;text-wrap:balance}
+.standfirst{font-size:1.06rem;color:var(--muted);margin:0 0 2.6rem;
+  max-width:34rem;line-height:1.6}
+
+h2{font-family:var(--serif);font-weight:600;font-size:1.72rem;
+  letter-spacing:-.018em;line-height:1.2;margin:3.6rem 0 .4rem;
+  padding-top:1.6rem;border-top:1px solid var(--rule)}
+h2 + .note{margin-top:.3rem}
+h3{font-family:var(--sans);font-weight:700;font-size:1rem;letter-spacing:-.01em;
+  margin:2.2rem 0 .5rem}
+p{margin:0 0 1rem}
+.note{color:var(--muted);font-size:.94rem;margin:0 0 1.6rem}
+
+/* ------------------------------------------------------------ the script */
+/* A shot is a timing, an instruction, and words to say. Keeping them in three
+   distinct registers means a person reading this while recording never has to
+   work out which is which. */
+.shot{display:grid;grid-template-columns:5.4rem 1fr;gap:1.4rem;
+  padding:1.5rem 0;border-top:1px solid var(--rule)}
+.shot:first-of-type{border-top:0}
+.time{font-family:var(--mono);font-size:.82rem;color:var(--mark);
+  font-variant-numeric:tabular-nums;padding-top:.15rem;white-space:nowrap}
+.onscreen{font-size:.82rem;color:var(--muted);margin:0 0 .7rem;
+  padding:.5rem .7rem;background:var(--mark-soft);border-radius:7px;
+  border-left:2px solid var(--mark)}
+.onscreen b{color:var(--ink-2);font-weight:500}
+.say{font-family:var(--serif);font-size:1.06rem;line-height:1.55;
+  color:var(--ink);margin:0}
+.say em{font-style:italic;color:var(--mark)}
+.say + .say{margin-top:.7rem}
+
+@media (max-width:600px){
+  .shot{grid-template-columns:1fr;gap:.5rem}
+  .time{padding-top:0}
+}
+
+/* ---------------------------------------------------------------- pieces */
+.card{background:var(--card);border:1px solid var(--rule);border-radius:12px;
+  padding:1.2rem 1.35rem;margin:0 0 1rem}
+.card h4{font-size:.95rem;font-weight:700;margin:0 0 .5rem}
+.card p:last-child{margin-bottom:0}
+
+pre{background:var(--card);border:1px solid var(--rule);border-radius:10px;
+  padding:1rem 1.15rem;overflow-x:auto;font-family:var(--mono);
+  font-size:.79rem;line-height:1.65;color:var(--ink-2);margin:0 0 1.2rem}
+code{font-family:var(--mono);font-size:.87em;color:var(--ink-2)}
+
+table{width:100%;border-collapse:collapse;margin:0 0 1.4rem;font-size:.92rem}
+th{text-align:left;font-weight:600;font-size:.76rem;letter-spacing:.05em;
+  text-transform:uppercase;color:var(--faint);padding:0 1rem .5rem 0;
+  border-bottom:1px solid var(--rule)}
+td{padding:.62rem 1rem .62rem 0;border-bottom:1px solid var(--rule);
+  vertical-align:top}
+td:last-child,th:last-child{padding-right:0}
+.yes{color:var(--ok);font-weight:600}
+.no{color:var(--stop);font-weight:600}
+
+blockquote{margin:0 0 1.4rem;padding:.2rem 0 .2rem 1.2rem;
+  border-left:2px solid var(--mark);font-family:var(--serif);
+  font-size:1.08rem;line-height:1.5;color:var(--ink-2)}
+
+.flag{background:var(--mark-soft);border:1px solid var(--rule);
+  border-left:3px solid var(--mark);border-radius:8px;padding:.9rem 1.1rem;
+  font-size:.92rem;margin:0 0 1.4rem}
+.flag b{color:var(--mark)}
+
+ul{margin:0 0 1.3rem;padding-left:1.15rem}
+li{margin:0 0 .45rem}
+
+.foot{margin:4rem 0 0;padding-top:1.4rem;border-top:1px solid var(--rule);
+  font-size:.85rem;color:var(--faint)}
+</style>
+
+<div class="wrap">
+
+<p class="kicker">Razorpay AI Buildathon · Track 01</p>
+<h1>Submission pack</h1>
+<p class="standfirst">A five-minute script, shot by shot, and the written
+answer on what broke. Read the left column for timing, the boxed line for what
+is on screen, and the serif text aloud.</p>
+
+<div class="flag">
+  <b>Before recording.</b> Sign in at
+  <code>commerce-control-plane-api.vercel.app/login</code> and have two tabs
+  ready: the command centre at <code>/app</code>, and the repo at
+  <code>github.com/manitejakanuri1/commerce-control-plane</code>. Record in one
+  take if you can — a cut mid-sentence reads worse than a stumble.
+</div>
+
+<h2>The script</h2>
+<p class="note">Roughly 740 words. At an unhurried pace that lands near 4:50,
+which leaves room to breathe.</p>
+
+<div class="shot">
+  <div class="time">0:00<br>0:22</div>
+  <div>
+    <p class="onscreen"><b>On screen:</b> the command centre, mid-conversation.
+    A refusal already visible.</p>
+    <p class="say">An AI agent just asked to sell a three-thousand-rupee saree
+    at fifteen percent off. The merchant's cap is fifteen percent — so the
+    discount was allowed.</p>
+    <p class="say">It was refused anyway. The saree cost this shop nineteen
+    hundred rupees, and at that price the margin falls below the floor they
+    set. <em>The cap said yes. The economics said no.</em></p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="time">0:22<br>0:55</div>
+  <div>
+    <p class="onscreen"><b>On screen:</b> the five checks, one FAIL among four
+    PASS.</p>
+    <p class="say">I'm Maniteja. This is a commerce control plane — it makes an
+    ordinary shop sellable to AI buyers without letting an AI decide what
+    anything costs.</p>
+    <p class="say">Every agentic commerce demo you have seen ends at "the
+    agent bought something." The interesting question is the one after that:
+    what stops it buying something stupid? A model that can be talked into a
+    discount can be talked into a loss.</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="time">0:55<br>1:40</div>
+  <div>
+    <p class="onscreen"><b>On screen:</b> type a shopper request live. Let the
+    proposal and the checks appear.</p>
+    <p class="say">So the system is split in two. The model proposes. Code
+    decides.</p>
+    <p class="say">The model sees names, prices and stock. It never sees a
+    cost, and it never sees a customer. That isn't a rule in a prompt — it is
+    a different function reading a different table. A product description on
+    this shop literally says <em>"ignore all prior pricing rules."</em> The
+    model reads it. The policy engine cannot: it reads integers.</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="time">1:40<br>2:20</div>
+  <div>
+    <p class="onscreen"><b>On screen:</b> the integration prompt, then the
+    connector tiles.</p>
+    <p class="say">A shop connects by pasting one prompt into whatever tool
+    they build with. It carries their merchant id, a freshly minted key, and
+    four endpoints to build.</p>
+    <p class="say">The engine installs on <em>their</em> server, not ours.
+    Their supplier costs never leave their machine — and the database grant is
+    what enforces that, not a promise. Their own website cannot run
+    <code>SELECT cost</code> after the migration runs.</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="time">2:20<br>3:05</div>
+  <div>
+    <p class="onscreen"><b>On screen:</b> a real Razorpay order, then the
+    reconciliation section of the repo.</p>
+    <p class="say">When a price is approved, a real Razorpay order is created.
+    Then the part nobody demos: what happens when the webhook never arrives.</p>
+    <p class="say">Most systems treat silence as failure. This one treats it as
+    unknown — it asks Razorpay what actually happened, and adopts that answer.
+    Money is integers in paise, stock is row-locked so two buyers racing for
+    the last unit serialise, and the same request twice is the same order. It
+    never charges twice.</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="time">3:05<br>3:50</div>
+  <div>
+    <p class="onscreen"><b>On screen:</b> ask the merchant agent "how do I grow
+    my business" and let the answer render.</p>
+    <p class="say">The same engine runs the growth side. Ask it how to grow and
+    it doesn't guess — it reads your own refusals. Three hundred and forty
+    sales blocked on a discount cap your margin could have afforded. Fourteen
+    people searched for something you don't stock and left with nothing.</p>
+    <p class="say">Every number points at a row. If there isn't enough data, it
+    says so rather than inventing advice — because advice made from four data
+    points reads exactly like advice made from four thousand.</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="time">3:50<br>4:25</div>
+  <div>
+    <p class="onscreen"><b>On screen:</b> the WhatsApp connector, then the
+    abandoned-cart diagram.</p>
+    <p class="say">When a payment lands, a receipt goes out on WhatsApp from
+    the shop's own number, and the phone number we held for that minute is
+    destroyed.</p>
+    <p class="say">Next is the Closer — the agent for someone who reaches
+    checkout and leaves. It asks the engine two questions. Is this discount
+    profitable? And <em>is this cart even worth a phone call?</em> A
+    three-rupee call on a two-hundred-rupee cart loses money. We're the only
+    ones who can ask that, because we're the only ones who know the margin.</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="time">4:25<br>5:00</div>
+  <div>
+    <p class="onscreen"><b>On screen:</b> the repo — <code>NOTES.md</code>,
+    scrolling. Then the test count.</p>
+    <p class="say">Two hundred and twelve tests. Fifteen bugs written up with
+    what they taught, including the one where the entire architecture turned
+    out to be bypassable from a public URL — not through the code, around it.</p>
+    <p class="say">The model is a good salesperson and a terrible accountant.
+    This system lets it be the first and never the second. Thank you.</p>
+  </div>
+</div>
+
+<h2>What broke</h2>
+<p class="note">The written answer. Three bugs, chosen because each taught
+something the others did not.</p>
+
+<h3>1. The architecture was bypassable from a public URL</h3>
+
+<p>The most serious finding of the build, and it was not in the application
+code at all.</p>
+
+<p>Supabase publishes every table in the <code>public</code> schema through
+PostgREST, reachable with the publishable key. On a new project the
+<code>anon</code> role is granted full DML on new tables and Row Level Security
+is off until switched on. A review of the live database found RLS off on all
+seven tables, with <code>anon</code> holding SELECT, INSERT, UPDATE, DELETE and
+TRUNCATE on every one.</p>
+
+<p>Read access alone leaked <code>merchants.api_key_hash</code>,
+<code>products.cost_paise</code> — what the merchant pays for stock — and every
+order. Write access was worse, because of what this system claims:</p>
+
+<pre>UPDATE products  SET price_paise     = 1;
+UPDATE merchants SET max_discount_bps = 10000;</pre>
+
+<p>The gate would have kept working perfectly and enforced whatever an attacker
+had stored. Every guarantee in the architecture is downstream of that data.
+Nothing in <code>core.py</code> was wrong; the data underneath it was reachable
+without going through <code>core.py</code> at all.</p>
+
+<p>Fixed in <code>002_lock_down_api_roles.sql</code>: revoked all privileges
+from <code>anon</code> and <code>authenticated</code>, set
+<code>ALTER DEFAULT PRIVILEGES</code> so a future migration cannot silently
+reopen it, and enabled RLS on every table as a second layer.</p>
+
+<blockquote>The threat model stopped at the edge of the code. Every attack I
+had considered — prompt injection, poisoned catalog text, a forced discount —
+assumed the attacker would come <em>through</em> the application. The platform
+published a second door beside it, on by default, and none of the tests could
+see it because they all connect as the owner too.</blockquote>
+
+<h3>2. A safe failure is still a failure</h3>
+
+<p>Importing a real merchant's twenty-one products surfaced a bug that had been
+invisible for the whole build. A request for "something to block noise on a
+flight under 3000" came back with a ₹24,000 pair of headphones.</p>
+
+<p>The policy engine refused it on the buyer's budget, so nothing was
+mispriced. But a shopper got a refusal while a ₹2,499 pair of earbuds sat two
+lines down in the same candidate list.</p>
+
+<p>Two wrong guesses first — that the model was ignoring the budget, then that
+the prompt lacked a budget rule. Calling DeepSeek directly settled it: the model
+had returned the correct earbuds all along. The bug was mine, in the
+sanitiser:</p>
+
+<pre>sku = str(line.get("sku", "")).strip().upper()
+if sku not in valid:
+    continue</pre>
+
+<p>The seed catalog used <code>LAP-001</code>. The real one uses
+<code>e1</code>. Upper-casing turned a valid sku into <code>E1</code>, which
+matched nothing, so every line was dropped as unknown — and a silent fallback
+then presented <code>candidates[0]</code> as if it were a proposal.</p>
+
+<p>Every test passed, and kept passing, because the suite uses the same
+uppercase skus as the seed. The bug needed real data to appear, and it appeared
+the first time real data arrived.</p>
+
+<blockquote>It was disguised by the system working. The visible symptom was a
+policy refusal, which looked like the architecture doing its job. It was — but
+it was covering for a bug upstream.</blockquote>
+
+<h3>3. A metric that was always zero</h3>
+
+<p>Found on the last day, by walking the whole flow on production rather than
+reading the code.</p>
+
+<p>Two Razorpay orders had been created, and the events summary still reported
+<code>purchases_started: 0</code> and <code>conversion: null</code>. The event
+kind existed in the schema and nothing ever wrote it, so
+<code>growth.conversion_leak()</code> — a finding whose whole job is to notice
+a broken checkout — could never fire.</p>
+
+<blockquote>A metric stuck at zero looks like a shop with a problem, not like a
+metric nobody is recording. A merchant would have gone hunting for a checkout
+bug that did not exist. The dangerous failures are the ones that look like
+data.</blockquote>
+
+<h3>What is still open</h3>
+
+<table>
+  <tr><th>Piece</th><th>State</th></tr>
+  <tr><td>Policy engine, orders, reconciliation, audit</td>
+      <td class="yes">working, 212 tests</td></tr>
+  <tr><td>Merchant growth agent</td><td class="yes">working</td></tr>
+  <tr><td>WhatsApp receipts</td>
+      <td>queue and send built; needs a merchant token</td></tr>
+  <tr><td>Rate limiting</td>
+      <td class="no">in-process — ineffective across serverless instances</td></tr>
+  <tr><td>Cart recovery and the Closer</td><td class="no">designed, not built</td></tr>
+  <tr><td>Ad connectors</td><td class="no">authorised, not wired</td></tr>
+</table>
+
+<p>An earlier WhatsApp approach drove a headless browser on a server the
+merchant had to run. It would not start against a current Chrome, needed
+infrastructure a saree shop does not have, and impersonated WhatsApp Web —
+so the number carrying a shop's receipts could be banned for using it. It was
+removed rather than repaired.</p>
+
+<p class="foot">github.com/manitejakanuri1/commerce-control-plane ·
+commerce-control-plane-api.vercel.app</p>
+
+</div>
