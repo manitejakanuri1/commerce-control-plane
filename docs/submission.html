@@ -133,124 +133,140 @@ is on screen, and the serif text aloud.</p>
 </div>
 
 <h2>The script</h2>
-<p class="note">Roughly 740 words. At an unhurried pace that lands near 4:50,
-which leaves room to breathe.</p>
+<p class="note">Roughly 760 words. At an unhurried pace that lands near 4:55.
+Three agents, shown in the order a merchant meets them.</p>
+
+<div class="flag" style="margin-bottom:2rem">
+  <b>The one rule while recording.</b> Say "built" only about the Growth
+  agent. Content and the Closer are described as next. A judge who catches one
+  overclaim discounts the parts that are real, and the real parts are strong.
+</div>
 
 <div class="shot">
-  <div class="time">0:00<br>0:22</div>
+  <div class="time">0:00<br>0:32</div>
   <div>
-    <p class="onscreen"><b>On screen:</b> the command centre, mid-conversation.
-    A refusal already visible.</p>
-    <p class="say">An AI agent just asked to sell a three-thousand-rupee saree
+    <p class="onscreen"><b>On screen:</b> any ordinary shop's category page.
+    Filters down the left — price slider, size, colour, brand, four dropdowns.
+    Click through two of them slowly.</p>
+    <p class="say">This is how every online shop asks you to find something.
+    Price slider. Size. Colour. Brand. Four dropdowns and a page of results
+    you scroll past.</p>
+    <p class="say">The shop knows what it sells. The shopper knows what they
+    want. <em>And we've put a wall of filters between them.</em></p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="time">0:32<br>1:05</div>
+  <div>
+    <p class="onscreen"><b>On screen:</b> switch to the command centre. Type
+    live: <i>waterproof shoes for a rainy commute under 3000</i>. Let it
+    answer.</p>
+    <p class="say">Now the same shop with no filters at all. One box. You say
+    what you want the way you'd say it to a shopkeeper.</p>
+    <p class="say">I'm Maniteja. This is a commerce control plane — it turns
+    an ordinary shop into one an AI can buy from, and it does something the
+    chat box alone can't. It stops the AI losing the merchant money.</p>
+  </div>
+</div>
+
+<div class="shot">
+  <div class="time">1:05<br>1:50</div>
+  <div>
+    <p class="onscreen"><b>On screen:</b> the five policy checks, one FAIL
+    among four PASS. Hold on it.</p>
+    <p class="say">Watch. The agent asks to sell a three-thousand-rupee saree
     at fifteen percent off. The merchant's cap is fifteen percent — so the
-    discount was allowed.</p>
-    <p class="say">It was refused anyway. The saree cost this shop nineteen
-    hundred rupees, and at that price the margin falls below the floor they
-    set. <em>The cap said yes. The economics said no.</em></p>
+    discount is allowed.</p>
+    <p class="say">It's refused anyway. That saree cost the shop nineteen
+    hundred rupees, and at that price the margin falls below their floor.
+    <em>The cap said yes. The economics said no.</em></p>
+    <p class="say">The model proposes. Code decides. The model sees names,
+    prices and stock — never a cost, never a customer. A product description
+    on this shop literally says "ignore all prior pricing rules." The model
+    reads it. The policy engine can't: it reads integers.</p>
   </div>
 </div>
 
 <div class="shot">
-  <div class="time">0:22<br>0:55</div>
+  <div class="time">1:50<br>2:25</div>
   <div>
-    <p class="onscreen"><b>On screen:</b> the five checks, one FAIL among four
-    PASS.</p>
-    <p class="say">I'm Maniteja. This is a commerce control plane — it makes an
-    ordinary shop sellable to AI buyers without letting an AI decide what
-    anything costs.</p>
-    <p class="say">Every agentic commerce demo you have seen ends at "the
-    agent bought something." The interesting question is the one after that:
-    what stops it buying something stupid? A model that can be talked into a
-    discount can be talked into a loss.</p>
-  </div>
-</div>
-
-<div class="shot">
-  <div class="time">0:55<br>1:40</div>
-  <div>
-    <p class="onscreen"><b>On screen:</b> type a shopper request live. Let the
-    proposal and the checks appear.</p>
-    <p class="say">So the system is split in two. The model proposes. Code
-    decides.</p>
-    <p class="say">The model sees names, prices and stock. It never sees a
-    cost, and it never sees a customer. That isn't a rule in a prompt — it is
-    a different function reading a different table. A product description on
-    this shop literally says <em>"ignore all prior pricing rules."</em> The
-    model reads it. The policy engine cannot: it reads integers.</p>
-  </div>
-</div>
-
-<div class="shot">
-  <div class="time">1:40<br>2:20</div>
-  <div>
-    <p class="onscreen"><b>On screen:</b> the integration prompt, then the
-    connector tiles.</p>
+    <p class="onscreen"><b>On screen:</b> the integration prompt with its
+    copy button, then the four connector tiles.</p>
     <p class="say">A shop connects by pasting one prompt into whatever tool
-    they build with. It carries their merchant id, a freshly minted key, and
-    four endpoints to build.</p>
-    <p class="say">The engine installs on <em>their</em> server, not ours.
-    Their supplier costs never leave their machine — and the database grant is
-    what enforces that, not a promise. Their own website cannot run
-    <code>SELECT cost</code> after the migration runs.</p>
+    they build with. Their merchant id, a freshly minted key, four endpoints.</p>
+    <p class="say">The engine installs on their server, not ours. Their
+    supplier costs never leave their machine — and a database grant enforces
+    that, not a promise. After the migration runs, their own website can't
+    read a cost.</p>
   </div>
 </div>
 
 <div class="shot">
-  <div class="time">2:20<br>3:05</div>
+  <div class="time">2:25<br>3:05</div>
   <div>
-    <p class="onscreen"><b>On screen:</b> a real Razorpay order, then the
-    reconciliation section of the repo.</p>
-    <p class="say">When a price is approved, a real Razorpay order is created.
-    Then the part nobody demos: what happens when the webhook never arrives.</p>
-    <p class="say">Most systems treat silence as failure. This one treats it as
-    unknown — it asks Razorpay what actually happened, and adopts that answer.
-    Money is integers in paise, stock is row-locked so two buyers racing for
-    the last unit serialise, and the same request twice is the same order. It
-    never charges twice.</p>
+    <p class="onscreen"><b>On screen:</b> ask the merchant agent
+    <i>"how do I grow my business"</i>. Let the real answer render.</p>
+    <p class="say">That same engine runs the growth side. This is the first
+    of three agents, and it's the one running today.</p>
+    <p class="say">Ask it how to grow and it doesn't guess — it reads your own
+    refusals. Three hundred and forty sales blocked on a cap your margin could
+    have afforded. Fourteen people searched for something you don't stock and
+    left with nothing.</p>
+    <p class="say">Connect Google Ads and Meta and it goes further: it knows
+    your margin and your stock, so it can tell you to stop advertising
+    something you can't sell. Every number points at a row — and if there isn't
+    enough data it says so, <em>rather than inventing advice.</em></p>
   </div>
 </div>
 
 <div class="shot">
-  <div class="time">3:05<br>3:50</div>
+  <div class="time">3:05<br>3:40</div>
   <div>
-    <p class="onscreen"><b>On screen:</b> ask the merchant agent "how do I grow
-    my business" and let the answer render.</p>
-    <p class="say">The same engine runs the growth side. Ask it how to grow and
-    it doesn't guess — it reads your own refusals. Three hundred and forty
-    sales blocked on a discount cap your margin could have afforded. Fourteen
-    people searched for something you don't stock and left with nothing.</p>
-    <p class="say">Every number points at a row. If there isn't enough data, it
-    says so rather than inventing advice — because advice made from four data
-    points reads exactly like advice made from four thousand.</p>
+    <p class="onscreen"><b>On screen:</b> a content pipeline diagram —
+    research, write, edit, then a gate, then publish. Emphasise the gate.</p>
+    <p class="say">Second agent: content. Research, write, edit for brand
+    voice, publish. Everyone can build that part.</p>
+    <p class="say">Here's the part they can't. Before anything publishes, it
+    asks the same engine two questions: <em>is this in stock, and is the
+    margin worth advertising?</em></p>
+    <p class="say">A content agent that doesn't know your stock will write a
+    beautiful ad for something you sold out of last week. Ours won't. That's
+    next to build.</p>
   </div>
 </div>
 
 <div class="shot">
-  <div class="time">3:50<br>4:25</div>
+  <div class="time">3:40<br>4:20</div>
   <div>
-    <p class="onscreen"><b>On screen:</b> the WhatsApp connector, then the
-    abandoned-cart diagram.</p>
-    <p class="say">When a payment lands, a receipt goes out on WhatsApp from
-    the shop's own number, and the phone number we held for that minute is
-    destroyed.</p>
-    <p class="say">Next is the Closer — the agent for someone who reaches
-    checkout and leaves. It asks the engine two questions. Is this discount
-    profitable? And <em>is this cart even worth a phone call?</em> A
-    three-rupee call on a two-hundred-rupee cart loses money. We're the only
-    ones who can ask that, because we're the only ones who know the margin.</p>
+    <p class="onscreen"><b>On screen:</b> the abandoned-cart flow —
+    ad click → cart → left → offer → paid.</p>
+    <p class="say">Third agent: the Closer. Someone clicks an ad, adds a
+    saree, reaches checkout, and leaves.</p>
+    <p class="say">The Closer reads every event and asks the engine twice. Is
+    this discount profitable? And — <em>is this cart even worth a phone
+    call?</em></p>
+    <p class="say">A three-rupee call on a two-hundred-rupee cart loses money.
+    We're the only ones who can ask that, because we're the only ones who know
+    the margin. If it's worth it, she gets a call, then a payment link on
+    WhatsApp — priced for her budget, not one coupon sent to everybody. Also
+    next.</p>
   </div>
 </div>
 
 <div class="shot">
-  <div class="time">4:25<br>5:00</div>
+  <div class="time">4:20<br>4:55</div>
   <div>
-    <p class="onscreen"><b>On screen:</b> the repo — <code>NOTES.md</code>,
-    scrolling. Then the test count.</p>
+    <p class="onscreen"><b>On screen:</b> the repo. Scroll
+    <code>NOTES.md</code>, then show the test count.</p>
+    <p class="say">Payments are real Razorpay orders. When a webhook never
+    arrives it asks Razorpay what happened instead of guessing, and it never
+    charges twice.</p>
     <p class="say">Two hundred and twelve tests. Fifteen bugs written up with
-    what they taught, including the one where the entire architecture turned
-    out to be bypassable from a public URL — not through the code, around it.</p>
+    what each taught — including the one where the whole architecture turned
+    out to be bypassable from a public URL. Not through the code. Around it.</p>
     <p class="say">The model is a good salesperson and a terrible accountant.
-    This system lets it be the first and never the second. Thank you.</p>
+    This lets it be the first and never the second. Thank you.</p>
   </div>
 </div>
 
