@@ -471,6 +471,7 @@ def _prompt_text(merchant_id, tool, browse_key=None, limits=None):
 === CREDENTIALS ===
 
 MERCHANT_ID: {merchant_id}
+CONTROL_PLANE=https://commerce-control-plane-api.vercel.app
 {key_line}
 
 POLICY_DB_URL=<your postgres connection string>
@@ -482,7 +483,10 @@ COMMERCE_POLICY_API_KEY or the Razorpay secret in front-end code.
 
 === INSTALL ===
 
-pip install commerce-policy=={ENGINE_VERSION}
+pip install "commerce-policy @ git+https://github.com/manitejakanuri1/commerce-control-plane@main#subdirectory=packages/commerce-policy"
+
+The package is not on PyPI. It installs from the repository, and the pin
+above is the {ENGINE_VERSION} release this control plane accepts.
 
 Create policy.config.json in the project root:
 
