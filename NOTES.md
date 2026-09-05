@@ -388,6 +388,97 @@ ordinary and the boundary is the thing worth proving: no cost in any prompt, no
 personal data in rendered history, pseudonyms stable and unlinkable, and every
 ungranted capability refused.
 
+### 2026-09-04 — a metric that was always zero
+
+Found by walking the whole flow on production rather than reading the code.
+
+Two Razorpay orders had been created and `events.summary` still reported
+`purchases_started: 0`, `conversion: null`. The event kind existed in `KINDS`
+and nothing ever wrote it, so `growth.conversion_leak()` — a finding whose
+entire job is to notice a broken checkout — could never fire.
+
+**The lesson:** a metric stuck at zero looks like a shop with a problem, not
+like a metric nobody is recording. A merchant would have gone hunting for a
+checkout bug that did not exist. The dangerous failures are the ones that look
+like data.
+
+### 2026-09-04 — the log endpoint refused the key the prompt issues
+
+`/v1/policy/logs` required a full key. The integration prompt issues a browse
+key. Every log a merchant's engine sent would have been refused with 403 —
+silently, because the sender queues and forgets by design. Nothing would have
+surfaced except an empty dashboard, which reads as "nobody is using it".
+
+The reasoning behind the original scope was wrong about what a merchant's
+server does. It searches through this API and it pays through Razorpay
+directly, with its own credentials. It never purchases through us, so browse is
+the correct scope for it to hold.
+
+**The lesson:** I chose a scope by imagining the caller instead of reading the
+prompt I had written four hours earlier, which said exactly which key it hands
+out.
+
+### 2026-09-04 — upsert is not a sync
+
+`sync_merchant` only ever added. A product removed from a catalog stayed
+searchable forever. The live index had drifted to 31 vectors against 5 real
+products.
+
+Worth being accurate about the damage, because the first diagnosis was wrong:
+search is scoped to a live merchant's own namespace, so the stale vectors sat
+in a namespace belonging to a merchant deleted long ago and could not have
+reached any shopper. That was cost and clutter. The real bug is the one it
+exposed — a *live* merchant removing a product would keep selling it.
+
+### 2026-09-04 — orders held a real email address
+
+`orders.buyer` stored the payer's address, and so did the `ORDER_CREATED`
+audit row — which is append-only and kept forever, so a leak into it could not
+be undone.
+
+Every other table already worked the other way. `buyer_profiles` keys on an
+HMAC, `events` redacts contact details out of shopper text, the connector
+never selects a name column. This one exception made "we hold nothing that
+identifies a customer" *almost* true.
+
+The address was never needed: Razorpay receives only the merchant id in its
+notes, and nothing read the column.
+
+HMAC rather than a bare hash, because a plain SHA-256 of an email is reversible
+by anyone holding a list of addresses. Scoped per merchant, so two shops
+comparing logs cannot discover they share a customer.
+
+**The lesson:** an almost-true claim is one somebody discovers the shape of at
+the worst possible moment.
+
+### 2026-09-05 — the WhatsApp approach was removed, not repaired
+
+Receipts were to be delivered by a worker driving WhatsApp Web through
+headless Chrome on a box the merchant kept running. Three things were wrong
+with it and only one was a bug.
+
+It would not start. Chrome launched fine standalone on the target machine; the
+library failed with an empty error against Chrome 152. Three fixes in — a real
+Chrome instead of Ubuntu's snap shim, the server sandbox flags, forcing
+`executablePath` with `useChrome: false` — and there was still nothing to
+diagnose without version archaeology.
+
+It needed infrastructure a saree shop does not have: an always-on server,
+Chromium, 700 MB of RAM, a QR scanned by hand, and somebody to notice when it
+stopped.
+
+And it impersonated WhatsApp Web, so the number carrying a shop's receipts
+could be banned for using it.
+
+Replaced with the Cloud API: a token and a phone number id, one HTTPS call per
+message. That also removed the worker entirely — delivery needed a separate
+process *only* because a serverless function cannot hold a browser session, and
+an HTTPS call has no such problem. The receipt now sends in the same request
+that confirms the payment.
+
+**The lesson:** an hour went into fixing the launch before asking whether the
+approach was worth launching. The bug was real and the fix was irrelevant.
+
 ### Operational note: server restarts and stale code
 
 `Stop-Process` filtered by executable path left the old uvicorn running, so the
