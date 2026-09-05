@@ -310,14 +310,14 @@
 
 <div class="top">
   <nav class="nav" aria-label="Sections">
-    <button id="nav-home" aria-current="false">
+    <button id="nav-home" aria-current="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
         stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
         aria-hidden="true">
         <path d="M3.5 10.5 12 3.5l8.5 7"/>
         <path d="M5.5 9.6V20h13V9.6"/><path d="M9.75 20v-5.5h4.5V20"/></svg>
       Home</button>
-    <button id="nav-search" aria-current="true">
+    <button id="nav-search" aria-current="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
         stroke-width="2" stroke-linecap="round" aria-hidden="true">
         <circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
@@ -777,10 +777,11 @@ $("later").addEventListener("click", () => {
 // inferable from what you typed. Naming them puts a shopper request and an
 // integration request in different places, which is also how the shopper path
 // comes back: it lost its button when that one became "I'll do it later".
-let mode = "search";
+let mode = "home";
 
 function setMode(next){
   mode = next;
+  $("nav-home").setAttribute("aria-current", String(next === "home"));
   $("nav-search").setAttribute("aria-current", String(next === "search"));
   $("nav-integration").setAttribute("aria-current",
     String(next === "integration"));
@@ -805,7 +806,10 @@ $("nav-activity").addEventListener("click", () => {
   setMode("activity");
   say("them", "Events and the audit trail are not wired into this page yet.");
 });
-setMode("search");
+$("q").addEventListener("focus", () => {
+  if (mode === "home") setMode("search");
+});
+setMode("home");
 
 // What a merchant can plug in, with each one's real state rather than a row
 // of buttons that all look equally ready. A connector shown as available and
