@@ -1,0 +1,406 @@
+<title>System Architecture</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=JetBrains+Mono:wght@400;500&display=swap">
+
+<style>
+/* A preview of the diagram before it goes anywhere. Dark panel, framed, the
+   same Mermaid source that will sit in the README — so what renders here is
+   what renders on GitHub. */
+:root{
+  --void:#0B0E14;
+  --panel:#11151E;
+  --edge:#1E242F;
+  --ink:#E8ECF4;
+  --muted:#8A93A6;
+  --faint:#5C6577;
+  --accent:#3D6FF5;
+  --sans:"DM Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--void);color:var(--ink);font-family:var(--sans);
+  font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;
+  padding:3rem 1.25rem 5rem}
+.wrap{max-width:56rem;margin:0 auto}
+
+h1{font-size:1.5rem;font-weight:700;letter-spacing:-.02em;margin:0 0 .5rem}
+.caption{color:var(--muted);font-size:.95rem;margin:0 0 2rem;max-width:44rem}
+.caption b{color:var(--ink);font-weight:500}
+
+.panel{background:var(--panel);border:1px solid var(--edge);border-radius:14px;
+  padding:1.5rem;overflow-x:auto}
+.panel pre.mermaid{background:none;border:0;margin:0;text-align:center}
+
+.legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(14rem,1fr));
+  gap:1rem;margin:2rem 0 0}
+.leg{background:var(--panel);border:1px solid var(--edge);border-radius:11px;
+  padding:1rem 1.1rem}
+.leg h3{font-size:.82rem;font-weight:600;margin:0 0 .4rem;color:var(--accent);
+  font-family:var(--mono);letter-spacing:.02em}
+.leg p{margin:0;font-size:.86rem;color:var(--muted);line-height:1.55}
+
+.sub{font-size:1.25rem;font-weight:700;letter-spacing:-.02em;margin:3.2rem 0 .5rem;padding-top:2rem;border-top:1px solid var(--edge)}
+  .src{margin:2.5rem 0 0}
+.src h2{font-size:1rem;font-weight:600;margin:0 0 .5rem}
+.src p{font-size:.88rem;color:var(--muted);margin:0 0 .9rem}
+.src pre{background:var(--panel);border:1px solid var(--edge);border-radius:11px;
+  padding:1.1rem 1.2rem;overflow-x:auto;font-family:var(--mono);
+  font-size:.74rem;line-height:1.6;color:var(--muted);margin:0}
+
+.foot{margin:3rem 0 0;padding-top:1.2rem;border-top:1px solid var(--edge);
+  font-size:.82rem;color:var(--faint)}
+</style>
+
+<div class="wrap">
+
+<h1>System Architecture</h1>
+<p class="caption">The Commerce Control Plane treats a sale as a strict
+pipeline of separable responsibilities: the model may only <b>propose</b>, and
+every rupee is decided by <b>code</b>.</p>
+
+
+<p class="caption" style="margin-top:-1rem">The shopper and content agents ask
+the gate directly. The closer asks through her history — what she viewed, owns
+and previously refused is what the gate prices against. Growth asks nothing at
+all: it proposes no price, so it only <b>reads</b> what the gate already
+decided.</p>
+
+<div class="panel">
+<pre class="mermaid">
+graph TD
+    T1[Shopper types a sentence] --> A1[SHOPPER AGENT<br/>built]
+    T3[Growth agent finds a losing ad] --> A3[CONTENT AGENT<br/>next]
+    T4[Cart abandoned 5 min] --> A4[CLOSER<br/>next]
+
+    A4 --> DB
+    DB -.her history.-> PE
+
+    A1 -->|sell SAR-104 at 15% off?| PE
+    A3 -->|in stock? margin worth an ad?| PE
+
+    PE{POLICY ENGINE<br/>cost · margin · floor · stock<br/>integers only, no model}
+
+    PE -->|approved| R1[Razorpay checkout]
+    PE -->|approved| R2[Publish the ad]
+    PE -->|approved| R3[Voice agent calls]
+    PE -->|refused| R4[Nothing spent]
+
+    R3 --> R5{She accepts?}
+    R5 -->|yes| R6[Payment link<br/>sent on WhatsApp]
+    R5 -->|no| R7[Declined, with her reason]
+
+    R1 --> DB
+    R2 --> DB
+    R6 --> DB
+    R7 --> DB
+    R4 --> DB
+
+    DB[(AUDIT + EVENTS<br/>every decision, and what<br/>every shopper did)]
+
+    DB -.reads.-> A2[GROWTH AGENT<br/>built · asks nothing]
+    T2[Owner asks a question] --> A2
+    A2 --> OUT[What is costing you money<br/>ranked by rupees]
+    OUT -.hands the losing ad to.-> T3
+</pre>
+</div>
+
+<div class="legend">
+  <div class="leg">
+    <h3>SHOPPER · built</h3>
+    <p>Reads names, prices and stock. Never a cost. Any product code it
+    invents is dropped before the engine sees it.</p>
+  </div>
+  <div class="leg">
+    <h3>GROWTH · built</h3>
+    <p>The only one that does not ask. It reads the audit — every decision the
+    gate already made — and tells the owner which of them is costing them
+    money.</p>
+  </div>
+  <div class="leg">
+    <h3>CONTENT · next</h3>
+    <p>Everyone can write ad copy. Nobody else can ask whether the product is
+    in stock and whether its margin is worth advertising.</p>
+  </div>
+  <div class="leg">
+    <h3>CLOSER · next</h3>
+    <p>Reads her history first, then lets the gate price against it. Only once
+    it approves does the voice agent dial, and a payment link exists only after
+    she has said yes.</p>
+  </div>
+</div>
+
+<div class="legend" style="margin-top:1rem">
+  <div class="leg" style="grid-column:1/-1">
+    <h3>THE LOOP</h3>
+    <p>The gate decides. The audit records it. Growth reads the audit and finds
+    the pattern. Content rewrites what was losing money — and asks the gate.
+    Nothing recommends a price without the gate having approved it first, and
+    nothing recommends at all without the gate having been asked before.</p>
+  </div>
+</div>
+
+<h2 class="sub">The buying path, in detail</h2>
+<p class="caption">What the Shopper agent's arrow above actually expands
+into.</p>
+
+<div class="panel" id="buying">
+<pre class="mermaid">
+graph TD
+    A[Shopper / AI Buyer] --> B[FastAPI Control Plane]
+    B --> C[Pinecone Retrieval<br/>per-merchant namespace]
+    C --> D[DeepSeek Shopper Agent<br/>names · prices · stock]
+    D --> E[Sku Sanitiser<br/>drops what the model invented]
+    E --> F{Policy Engine<br/>merchant's own server}
+
+    F -->|any check fails| G[Refused<br/>nothing reserved]
+    F -->|all five pass| H[Quote Engine<br/>cap + margin re-checked]
+
+    H --> I[Inventory Lock<br/>SELECT FOR UPDATE]
+    I --> J[Razorpay Order]
+    J --> K{Payment Webhook}
+
+    K -->|arrives| L[CONFIRMED]
+    K -->|never arrives| N[Ask Razorpay directly<br/>never charge twice]
+    N --> L
+
+    G --> M
+    L --> M[(Supabase PostgreSQL<br/>hash-chained audit)]
+    M --> O[WhatsApp Receipt<br/>payer's phone destroyed on send]
+</pre>
+</div>
+
+<div class="legend">
+  <div class="leg">
+    <h3>Two diamonds</h3>
+    <p>One branches on <b>money</b> — the cap allowed it, does the margin? One
+    branches on <b>truth</b> — silence is not failure, so what actually
+    happened?</p>
+  </div>
+  <div class="leg">
+    <h3>Refused is not a dead end</h3>
+    <p>A refusal flows into the audit alongside a confirmed sale. A merchant
+    asking why something didn't sell gets an answer.</p>
+  </div>
+  <div class="leg">
+    <h3>The engine is elsewhere</h3>
+    <p>It runs on the merchant's own server. Cost never crosses the network,
+    and a database grant enforces that rather than a promise.</p>
+  </div>
+</div>
+
+<h2 class="sub">The growth agent, in detail</h2>
+<p class="caption">The only agent that reads what a shop <b>spends</b>. Ad
+platforms count sales; this counts profit, because it is the only thing in the
+loop that knows what each product earns.</p>
+
+<div class="panel">
+<pre class="mermaid">
+graph TD
+    T[Nightly, or the owner asks] --> R1[Read ad spend<br/>Meta Ads · Google Ads]
+    T --> R2[Read own refusals<br/>policy_decisions]
+    T --> R3[Read dead searches<br/>events, 0 results]
+    T --> R4[Read margin + stock<br/>merchant's database]
+
+    R1 --> J{Join spend to margin<br/>per product}
+    R4 --> J
+
+    J -->|cost per sale &lt; margin| P1[Profitable<br/>spend more]
+    J -->|cost per sale &gt; margin| P2[Losing money<br/>stop this ad]
+
+    R2 --> F[Rank every finding<br/>by rupees recoverable]
+    R3 --> F
+    P1 --> F
+    P2 --> F
+
+    F --> E{Enough data?}
+    E -->|fewer than 20 events| S[Say so.<br/>Invent nothing.]
+    E -->|yes| O[Top 3 findings<br/>each traced to a row]
+
+    O --> D1[Dashboard<br/>full detail]
+    O --> D2[WhatsApp digest<br/>3 lines, weekly]
+    O --> D3[Hand to CONTENT agent<br/>rewrite the losing ad]
+</pre>
+</div>
+
+<div class="legend">
+  <div class="leg">
+    <h3>Why the join matters</h3>
+    <p>Meta reports a cable ad as the winner: forty sales, cheapest cost per
+    sale. It does not know a cable earns Rs 120 and cost Rs 250 to sell. The
+    join is the whole product.</p>
+  </div>
+  <div class="leg">
+    <h3>Ranked by rupees</h3>
+    <p>Six true observations are not a plan. An owner with one spare hour needs
+    to know which one to spend it on, so findings are ordered by what they are
+    worth, not by what is easiest to say.</p>
+  </div>
+  <div class="leg">
+    <h3>The honesty gate</h3>
+    <p>Below twenty events it reports that rather than advising. Advice made
+    from four data points reads exactly like advice made from four thousand,
+    and an owner acts on it either way.</p>
+  </div>
+</div>
+
+<h2 class="sub">The content agent, in detail</h2>
+<p class="caption">Everyone can build the writing half. The half nobody else
+can build is the gate before publish — because it is the only one that knows
+whether the product is <b>in stock</b> and whether its <b>margin is worth an
+ad</b>.</p>
+
+<div class="panel">
+<pre class="mermaid">
+graph TD
+    T[Growth agent: this ad is losing money] --> B[Brief<br/>product · angle · channel]
+    B --> R[RESEARCHER<br/>unmet demand · what sells · keywords]
+    R --> W[WRITER<br/>copy · headline · offer]
+    W --> E[EDITOR<br/>brand voice · scoring]
+    E --> V{Passes the rubric?}
+    V -->|no| W
+
+    V -->|yes| G{POLICY ENGINE}
+    G -->|out of stock| X1[Blocked<br/>never advertise what you cannot sell]
+    G -->|margin too thin| X2[Blocked<br/>the ad would cost more than the sale earns]
+    G -->|discount above cap| X3[Blocked]
+    G -->|approved| P[PUBLISHER<br/>Meta Ads · Google Ads via Windsor]
+
+    P --> A[(Audited: what was published,<br/>and what the engine allowed)]
+    X1 --> A
+    X2 --> A
+    X3 --> A
+</pre>
+</div>
+
+<div class="legend">
+  <div class="leg">
+    <h3>The loop before the gate</h3>
+    <p>Editor and writer iterate against a rubric until the voice passes. That
+    part is ordinary, and it is the part every marketing tool already has.</p>
+  </div>
+  <div class="leg">
+    <h3>The gate is the product</h3>
+    <p>A content agent that does not know your stock will write a beautiful ad
+    for something you sold out of last week, and spend real money running it.</p>
+  </div>
+  <div class="leg">
+    <h3>Blocks are audited too</h3>
+    <p>A refused ad is recorded next to a published one, so a merchant can see
+    what was almost spent and why it was not.</p>
+  </div>
+</div>
+
+<h2 class="sub">The closer, in detail</h2>
+<p class="caption">Two questions before anyone is contacted. Is the discount
+profitable — and <b>is this cart worth the cost of reaching out at all?</b> A
+three-rupee call on a two-hundred-rupee cart loses money. Only once the gate
+has approved does the voice agent dial, and only once she says yes does a
+payment link exist.</p>
+
+<div class="panel">
+<pre class="mermaid">
+graph TD
+    C1[Shopper clicks an ad] --> C2[Adds to cart]
+    C2 --> C3[Reaches checkout]
+    C3 --> C4{Paid within 5 min?}
+    C4 -->|yes| Z[Nothing to do]
+
+    C4 -->|no| CL[CLOSER wakes]
+    CL --> DB[(AUDIT + EVENTS)]
+
+    DB --> H1[What she viewed and searched]
+    DB --> H2[What she already owns]
+    DB --> H3[Past offers she took or refused]
+    DB --> H4[Margin and stock on this cart]
+
+    H1 --> PE
+    H2 --> PE
+    H3 --> PE
+    H4 --> PE
+
+    PE{POLICY ENGINE<br/>band from margin · tier from history<br/>approve this exact offer}
+
+    PE -->|not worth chasing<br/>margin under Rs 200| Z2[Leave it.<br/>Contact costs more than the sale earns]
+    PE -->|refused| Z3[No outreach at all]
+
+    PE -->|approved Rs 7,735| VA[VOICE AGENT calls]
+    VA --> CV[Conversation<br/>offers Rs 7,735, was Rs 8,500]
+    CV --> ACC{Does she accept?}
+
+    ACC -->|no| D1[Recorded as declined<br/>with her reason]
+    ACC -->|yes| SV[Save acceptance<br/>events + audit]
+
+    SV --> LK[Payment link created<br/>one shopper · expires in 24h]
+    LK --> WA[WhatsApp<br/>offer price · final price · link]
+    WA --> PD{She pays?}
+
+    PD -->|yes| OK[Order confirmed<br/>stock committed]
+    PD -->|link expires| EX[Link dead.<br/>Discount not given away.]
+
+    OK --> A2[(Audited: buyer_ref · band · tier ·<br/>what she was offered · what she paid)]
+    D1 --> A2
+    EX --> A2
+    Z2 --> A2
+    Z3 --> A2
+</pre>
+</div>
+
+<div class="legend">
+  <div class="leg">
+    <h3>The second question is the moat</h3>
+    <p>Every cart-recovery tool asks whether the discount is allowed. None of
+    them can ask whether the customer is worth a phone call, because none of
+    them knows the margin.</p>
+  </div>
+  <div class="leg">
+    <h3>History decides the offer</h3>
+    <p>Two shoppers abandon the same cart and are quoted differently, because
+    one has bought twice before and one is new. The audit is not a record here —
+    it is the input.</p>
+  </div>
+  <div class="leg">
+    <h3>The link is minted last</h3>
+    <p>Created the moment she says yes, and it lands on her phone while she is
+    still on the line. A link sent before that is a discount handed to somebody
+    who never asked for one — and who might have paid full price.</p>
+  </div>
+  <div class="leg">
+    <h3>Why every offer is logged</h3>
+    <p>Two shoppers paid different prices for the same saree. One of them may
+    eventually ask why, and without the row there is no answer — not a vague
+    one, none at all.</p>
+  </div>
+</div>
+
+<div class="src">
+  <h2>The source, for the README</h2>
+  <p>GitHub renders this natively — paste it inside a fenced
+  <code>mermaid</code> block and it draws itself, in whichever theme the reader
+  is using.</p>
+  <pre>graph TD
+    A[Shopper / AI Buyer] --&gt; B[FastAPI Control Plane]
+    B --&gt; C[Pinecone Retrieval&lt;br/&gt;per-merchant namespace]
+    C --&gt; D[DeepSeek Shopper Agent&lt;br/&gt;names · prices · stock]
+    D --&gt; E[Sku Sanitiser&lt;br/&gt;drops what the model invented]
+    E --&gt; F{Policy Engine&lt;br/&gt;merchant's own server}
+
+    F --&gt;|any check fails| G[Refused&lt;br/&gt;nothing reserved]
+    F --&gt;|all five pass| H[Quote Engine&lt;br/&gt;cap + margin re-checked]
+
+    H --&gt; I[Inventory Lock&lt;br/&gt;SELECT FOR UPDATE]
+    I --&gt; J[Razorpay Order]
+    J --&gt; K{Payment Webhook}
+
+    K --&gt;|arrives| L[CONFIRMED]
+    K --&gt;|never arrives| N[Ask Razorpay directly&lt;br/&gt;never charge twice]
+    N --&gt; L
+
+    G --&gt; M
+    L --&gt; M[(Supabase PostgreSQL&lt;br/&gt;hash-chained audit)]
+    M --&gt; O[WhatsApp Receipt&lt;br/&gt;payer's phone destroyed on send]</pre>
+</div>
+
+<p class="foot">Preview only — nothing has been committed to the repository.</p>
+
+</div>

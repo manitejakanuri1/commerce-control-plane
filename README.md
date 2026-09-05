@@ -27,6 +27,57 @@ be the first and never the second.
 
 ---
 
+## The system
+
+The shopper and content agents ask the gate directly. The closer asks through
+her history — what she viewed, owns and previously refused is what the gate
+prices against. Growth asks nothing at all: it proposes no price, so it only
+*reads* what the gate already decided.
+
+```mermaid
+graph TD
+    T1[Shopper types a sentence] --> A1[SHOPPER AGENT<br/>built]
+    T3[Growth agent finds a losing ad] --> A3[CONTENT AGENT<br/>next]
+    T4[Cart abandoned 5 min] --> A4[CLOSER<br/>next]
+
+    A4 --> DB
+    DB -.her history.-> PE
+
+    A1 -->|sell SAR-104 at 15% off?| PE
+    A3 -->|in stock? margin worth an ad?| PE
+
+    PE{POLICY ENGINE<br/>cost · margin · floor · stock<br/>integers only, no model}
+
+    PE -->|approved| R1[Razorpay checkout]
+    PE -->|approved| R2[Publish the ad]
+    PE -->|approved| R3[Voice agent calls]
+    PE -->|refused| R4[Nothing spent]
+
+    R3 --> R5{She accepts?}
+    R5 -->|yes| R6[Payment link<br/>sent on WhatsApp]
+    R5 -->|no| R7[Declined, with her reason]
+
+    R1 --> DB
+    R2 --> DB
+    R6 --> DB
+    R7 --> DB
+    R4 --> DB
+
+    DB[(AUDIT + EVENTS<br/>every decision, and what<br/>every shopper did)]
+
+    DB -.reads.-> A2[GROWTH AGENT<br/>built · asks nothing]
+    T2[Owner asks a question] --> A2
+    A2 --> OUT[What is costing you money<br/>ranked by rupees]
+    OUT -.hands the losing ad to.-> T3
+```
+
+| Agent | Reads | Asks the gate | Built |
+|---|---|---|---|
+| **Shopper** | catalog names, prices, stock | yes | yes |
+| **Growth** | the audit, ad spend, margin | **no** — proposes no price | yes |
+| **Content** | brand voice, what sells | yes, before publishing | next |
+| **Closer** | her history, then margin | yes, through that history | next |
+
 ## What runs where
 
 The split is the design. It is not a deployment detail.
@@ -62,45 +113,33 @@ reports `not_configured` rather than passing silently.
 
 ## The purchase flow
 
-```
-AI buyer or human
-      │
-      ▼
-API gateway            auth by merchant API key, rate limited
-      │
-      ▼
-Agent                  reads untrusted catalog text, proposes skus + discount
-      │                PROPOSAL ONLY — carries no prices
-      ▼
-Policy engine          discount cap │ margin floor │ floor price │
-      │                stock │ buyer budget
-      ├─── reject ───▶  stop. nothing reserved, nothing charged
-      ▼
-Quote engine           prices read from the products table only
-      │
-      ▼
-Inventory              SELECT ... FOR UPDATE, sku-sorted, held with a TTL
-      │
-      ▼
-Razorpay               order created, customer pays
-      │
-      ├──── webhook ────┬──── silence ────┐
-      ▼                                   ▼
-Confirmed                     RECONCILIATION_REQUIRED
-      │                                   │
-      │                                   ▼
-      │                        Ask Razorpay what is true.
-      │                        Never create a second payment.
-      │                                   │
-      ▼                                   ▼
-Receipt queued                 confirmed / failed / still pending
-      │
-      ▼
-WhatsApp               sent from the merchant's own business number.
-                       The payer's phone is destroyed on send.
-```
+What the shopper agent's arrow expands into. Two diamonds: one branches on
+**money** — the cap allowed it, does the margin? — and one on **truth**:
+silence is not failure, so what actually happened?
 
----
+```mermaid
+graph TD
+    A[Shopper / AI Buyer] --> B[FastAPI Control Plane]
+    B --> C[Pinecone Retrieval<br/>per-merchant namespace]
+    C --> D[DeepSeek Shopper Agent<br/>names · prices · stock]
+    D --> E[Sku Sanitiser<br/>drops what the model invented]
+    E --> F{Policy Engine<br/>merchant's own server}
+
+    F -->|any check fails| G[Refused<br/>nothing reserved]
+    F -->|all five pass| H[Quote Engine<br/>cap + margin re-checked]
+
+    H --> I[Inventory Lock<br/>SELECT FOR UPDATE]
+    I --> J[Razorpay Order]
+    J --> K{Payment Webhook}
+
+    K -->|arrives| L[CONFIRMED]
+    K -->|never arrives| N[Ask Razorpay directly<br/>never charge twice]
+    N --> L
+
+    G --> M
+    L --> M[(Supabase PostgreSQL<br/>hash-chained audit)]
+    M --> O[WhatsApp Receipt<br/>payer's phone destroyed on send]
+```
 
 ## The five checks
 
@@ -141,16 +180,10 @@ budget of ₹10,00,000 does not widen a 10% cap.
 
 ---
 
-## The three agents
+## The agents, in detail
 
-| | Agent | Reads | Decides | Built |
-|---|---|---|---|---|
-| 1 | **Shopper** | catalog, names and prices | which products to propose | yes |
-| 2 | **Merchant growth** | refusals, dead searches, ad spend | what to fix, ranked by rupees | yes |
-| 3 | **Content** | brand voice, what sells | ad copy and offers | no |
-| 4 | **Closer** | ad click → cart → no payment | who is worth chasing | no |
-
-None of them decides a price. Each asks the same engine.
+None of them decides a price. Three ask the gate; the fourth reads what it
+already decided.
 
 The growth agent runs DeepSeek in forced tool-calling mode: the model picks one
 of seven functions and writes nothing. Every figure a merchant reads is
@@ -163,6 +196,123 @@ person, or a topic — so "what does the shop next door charge" and "how do I
 make chicken curry" have nothing to call.
 
 ---
+
+### The growth agent
+
+The only agent that reads what a shop **spends**. Ad platforms count sales;
+this counts profit, because it is the only thing in the loop that knows what
+each product earns.
+
+Meta reports a cable ad as the winner — forty sales, cheapest cost per sale. It
+does not know a cable earns ₹120 and cost ₹250 to sell. The join is the whole
+product.
+
+```mermaid
+graph TD
+    T[Nightly, or the owner asks] --> R1[Read ad spend<br/>Meta Ads · Google Ads]
+    T --> R2[Read own refusals<br/>policy_decisions]
+    T --> R3[Read dead searches<br/>events, 0 results]
+    T --> R4[Read margin + stock<br/>merchant's database]
+
+    R1 --> J{Join spend to margin<br/>per product}
+    R4 --> J
+
+    J -->|cost per sale < margin| P1[Profitable<br/>spend more]
+    J -->|cost per sale > margin| P2[Losing money<br/>stop this ad]
+
+    R2 --> F[Rank every finding<br/>by rupees recoverable]
+    R3 --> F
+    P1 --> F
+    P2 --> F
+
+    F --> E{Enough data?}
+    E -->|fewer than 20 events| S[Say so.<br/>Invent nothing.]
+    E -->|yes| O[Top 3 findings<br/>each traced to a row]
+
+    O --> D1[Dashboard<br/>full detail]
+    O --> D2[WhatsApp digest<br/>3 lines, weekly]
+    O --> D3[Hand to CONTENT agent<br/>rewrite the losing ad]
+```
+
+### The content agent
+
+Everyone can build the writing half. The half nobody else can build is the gate
+before publish, because it is the only one that knows whether the product is in
+stock and whether its margin is worth an ad.
+
+```mermaid
+graph TD
+    T[Growth agent: this ad is losing money] --> B[Brief<br/>product · angle · channel]
+    B --> R[RESEARCHER<br/>unmet demand · what sells · keywords]
+    R --> W[WRITER<br/>copy · headline · offer]
+    W --> E[EDITOR<br/>brand voice · scoring]
+    E --> V{Passes the rubric?}
+    V -->|no| W
+
+    V -->|yes| G{POLICY ENGINE}
+    G -->|out of stock| X1[Blocked<br/>never advertise what you cannot sell]
+    G -->|margin too thin| X2[Blocked<br/>the ad would cost more than the sale earns]
+    G -->|discount above cap| X3[Blocked]
+    G -->|approved| P[PUBLISHER<br/>Meta Ads · Google Ads via Windsor]
+
+    P --> A[(Audited: what was published,<br/>and what the engine allowed)]
+    X1 --> A
+    X2 --> A
+    X3 --> A
+```
+
+### The closer
+
+Reads her history first, then lets the gate price against it. Only once the gate
+approves does the voice agent dial — and a payment link exists only after she
+has said yes. A link created any earlier is a discount handed to somebody who
+never asked for one, and who might have paid full price.
+
+```mermaid
+graph TD
+    C1[Shopper clicks an ad] --> C2[Adds to cart]
+    C2 --> C3[Reaches checkout]
+    C3 --> C4{Paid within 5 min?}
+    C4 -->|yes| Z[Nothing to do]
+
+    C4 -->|no| CL[CLOSER wakes]
+    CL --> DB[(AUDIT + EVENTS)]
+
+    DB --> H1[What she viewed and searched]
+    DB --> H2[What she already owns]
+    DB --> H3[Past offers she took or refused]
+    DB --> H4[Margin and stock on this cart]
+
+    H1 --> PE
+    H2 --> PE
+    H3 --> PE
+    H4 --> PE
+
+    PE{POLICY ENGINE<br/>band from margin · tier from history<br/>approve this exact offer}
+
+    PE -->|not worth chasing<br/>margin under Rs 200| Z2[Leave it.<br/>Contact costs more than the sale earns]
+    PE -->|refused| Z3[No outreach at all]
+
+    PE -->|approved Rs 7,735| VA[VOICE AGENT calls]
+    VA --> CV[Conversation<br/>offers Rs 7,735, was Rs 8,500]
+    CV --> ACC{Does she accept?}
+
+    ACC -->|no| D1[Recorded as declined<br/>with her reason]
+    ACC -->|yes| SV[Save acceptance<br/>events + audit]
+
+    SV --> LK[Payment link created<br/>one shopper · expires in 24h]
+    LK --> WA[WhatsApp<br/>offer price · final price · link]
+    WA --> PD{She pays?}
+
+    PD -->|yes| OK[Order confirmed<br/>stock committed]
+    PD -->|link expires| EX[Link dead.<br/>Discount not given away.]
+
+    OK --> A2[(Audited: buyer_ref · band · tier ·<br/>what she was offered · what she paid)]
+    D1 --> A2
+    EX --> A2
+    Z2 --> A2
+    Z3 --> A2
+```
 
 ## What is stored, and what is not
 
