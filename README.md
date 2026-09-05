@@ -99,8 +99,8 @@ graph TD
 |---|---|---|---|
 | **Shopper** | catalog names, prices, stock | yes | yes |
 | **Growth** | the audit, ad spend, margin | **no** — proposes no price | yes |
-| **Content** | brand voice, what sells | yes, before publishing | next |
-| **Closer** | her history, then margin | yes, through that history | next |
+| **Content** | brand voice, what sells | yes, before publishing | yes |
+| **Closer** | her history, then margin | yes, through that history | yes |
 
 ## What runs where
 
